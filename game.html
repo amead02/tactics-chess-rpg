@@ -518,7 +518,26 @@
         for (let c = 0; c < 8; c++) {
           const piece = boardState[r][c];
           if (!piece || piece.color !== color) continue;
+          // Generate candidate moves. For pawns, pseudo contains only forward moves;
+          // we will add diagonal capture squares separately if they contain an enemy piece.
           const pseudo = getPseudoMoves(r, c, piece);
+          // For pawns, include diagonal capture squares (only when an opponent piece is present).
+          if (piece.type === 'P') {
+            const dir = piece.color === 'w' ? -1 : 1;
+            // Two diagonal directions: left and right
+            const diags = [
+              { row: r + dir, col: c - 1 },
+              { row: r + dir, col: c + 1 },
+            ];
+            for (const d of diags) {
+              if (d.row >= 0 && d.row < 8 && d.col >= 0 && d.col < 8) {
+                const targetPiece = boardState[d.row][d.col];
+                if (targetPiece && targetPiece.color !== color) {
+                  pseudo.push({ row: d.row, col: d.col });
+                }
+              }
+            }
+          }
           for (const p of pseudo) {
             const target = boardState[p.row][p.col];
             const isCapture = target && target.color !== color;
@@ -620,6 +639,21 @@
     });
     // Initialise game on page load
     init();
+    // Debugging: if URL hash is #test, set up a simple test board to easily test captures
+    if (window.location.hash === '#test') {
+      // Simple scenario: white pawn at d4, black pawn at e5
+      // 8x8 empty board
+      boardState = Array.from({ length: 8 }, () => Array(8).fill(null));
+      boardState[4][3] = { type: 'P', color: 'w', hp: PIECE_STATS.P.hp };
+      boardState[3][4] = { type: 'P', color: 'b', hp: PIECE_STATS.P.hp };
+      turn = 'w';
+      defendTokens = { w: 3, b: 3 };
+      selected = null;
+      logDiv.innerHTML = '';
+      render();
+      log('Test board: White pawn at d4 vs Black pawn at e5');
+      log('White to move.');
+    }
   </script>
 </body>
 </html>
