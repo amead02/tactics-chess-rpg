@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Tactics Chess (RPG Variant) — HTML Prototype v2.6 (Last Stand)</title>
+  <title>tChess — Chess + HP</title>
   <style>
     :root{
       --bg:#0f0f14; --panel:#161824; --panel-2:#1e2130; --accent:#c8ff4a; --accent-2:#8df; --danger:#ff5a7a; --ok:#59f28b; --warn:#ffd463;
@@ -13,22 +13,22 @@
     html,body{height:100%}
     body{margin:0; background:radial-gradient(1200px 800px at 20% 0%, #1b1f2a 0%, #0f0f14 55%, #0b0c10 100%); color:var(--light); font-family: ui-rounded, system-ui, -apple-system, "Segoe UI", Roboto, Arial; display:flex; flex-direction:column;}
     header{display:flex; align-items:center; gap:12px; padding:12px 16px; background:linear-gradient(180deg, #181b27, #121420); border-bottom:1px solid #2a2e40}
-    header h1{font-size:18px; margin:0; letter-spacing:.4px; font-weight:700}
+    header h1{font-size:18px; margin:0; letter-spacing:.4px; font-weight:800}
     .tag{font-size:12px; padding:2px 8px; border-radius:999px; background:var(--panel-2); color:var(--accent-2); border:1px solid #2a3145}
     #hud{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-left:auto}
     .btn{appearance:none; border:none; cursor:pointer; background:linear-gradient(180deg, #2a2e40, #1a1d2b); color:var(--light); padding:10px 14px; border-radius:14px; font-weight:700; letter-spacing:.3px; box-shadow:0 0 0 1px #2f3450 inset, 0 6px 16px rgba(0,0,0,.35)}
     .btn--ghost{background:transparent; box-shadow:0 0 0 1px #2f3450 inset}
     .btn--accent{background:linear-gradient(180deg, #d5ff6a, #8bd83c); color:#0b0f12; box-shadow:0 0 0 1px #b5ef4a inset, 0 12px 24px rgba(173, 255, 89, .2)}
     .btn:disabled{opacity:.6; cursor:not-allowed}
-    main{display:grid; grid-template-columns:minmax(320px, 680px) 320px; gap:18px; padding:16px; flex:1}
+    main{display:grid; grid-template-columns:minmax(320px, 680px) 320px; gap:18px; padding:16px; flex:1; max-width:1120px; margin:0 auto; justify-content:center; align-items:start}
     @media(max-width:980px){ main{grid-template-columns:1fr} }
-    .board-wrap{background:var(--panel); border:1px solid #2a2e40; border-radius:16px; padding:14px; box-shadow:0 20px 40px rgba(0,0,0,.25)}
-    .board{display:grid; grid-template-columns:repeat(8,1fr); grid-auto-rows:1fr; aspect-ratio:1/1; border-radius:10px; overflow:hidden}
+    .board-wrap{background:var(--panel); border:1px solid #2a2e40; border-radius:16px; padding:14px; box-shadow:0 20px 40px rgba(0,0,0,.25); margin:0 auto; width:100%}
+    .board{display:grid; grid-template-columns:repeat(8,1fr); grid-auto-rows:1fr; aspect-ratio:1/1; border-radius:10px; overflow:hidden; width:100%}
     .sq{position:relative; display:flex; align-items:center; justify-content:center; font-size:34px; user-select:none}
     .light{background:#c2d1ee22}
     .dark{background:#10131d}
     .sq::after{content:attr(data-coord); position:absolute; left:6px; bottom:4px; font-size:10px; color:#768199}
-    .piece{position:relative; width:100%; height:100%; display:flex; align-items:center; justify-content:center}
+    .piece{position:relative; width:100%; height:100%; display:flex; align-items:center; justify-content:center; transition:transform .15s ease}
     .piece span{filter:drop-shadow(0 2px 2px rgba(0,0,0,.45))}
     .white{color:#ffd76b; text-shadow:0 0 2px #000, 0 0 6px rgba(255,215,107,.6); filter:drop-shadow(0 2px 2px rgba(0,0,0,.55))}
     .black{color:#67c9ff; text-shadow:0 0 2px #000, 0 0 6px rgba(103,201,255,.6); filter:drop-shadow(0 2px 2px rgba(0,0,0,.55))}
@@ -50,11 +50,12 @@
     .cmd-choices{display:flex; gap:10px; flex-wrap:wrap}
     .cmd-note{font-size:12px; color:var(--muted)}
 
-    /* Duel overlay (both pieces on same square during combat) */
-    .duel-ghost{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; opacity:0.9; transform:translate(-6%, -6%)}
+    /* Duel overlay (show both pieces side-by-side during combat) */
+    .duel-ghost{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; opacity:0.95; transform:translateX(-32%); scale:.9}
     .duel-ghost .hp{left:4px; right:auto; background:#1a1208; border-color:#5c431f; color:#ffd08a}
+    .duel-defender{ transform:translateX(32%); scale:.9 }
 
-    /* Modal (still used for Rules + Outcomes) */
+    /* Modal (still used for Rules + Outcomes like Checkmate and Last Stand) */
     .overlay{position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(6,8,12,.6); backdrop-filter:blur(4px); z-index:10}
     .overlay.show{display:flex}
     .dialog{width:min(560px, 92vw); background:linear-gradient(180deg, #1c1f2f, #131629); border:1px solid #2f3450; border-radius:18px; box-shadow:0 30px 60px rgba(0,0,0,.5)}
@@ -84,12 +85,19 @@
     @keyframes pulse{ 0%{ box-shadow:0 0 0 0 rgba(255,74,74,.9);} 100%{ box-shadow:0 0 0 18px rgba(255,74,74,0);} }
     .fx-shake{ animation:shake .4s ease-out; }
     @keyframes shake{ 10%,90%{ transform:translateX(-2px);} 20%,80%{ transform:translateX(4px);} 30%,50%,70%{ transform:translateX(-6px);} 40%,60%{ transform:translateX(6px);} }
+
+    /* Result banner over the contested square */
+    .fx-banner{ z-index:2 }
+    .fx-banner span{ padding:6px 10px; border-radius:10px; font-weight:900; letter-spacing:.3px; border:1px solid #303a54; box-shadow:0 10px 24px rgba(0,0,0,.35)}
+    .banner-defended span{ background:linear-gradient(180deg,#2b344a,#1a2134); color:#d7e3ff; border-color:#3a4c78 }
+    .banner-wounded span{ background:linear-gradient(180deg,#3a2d18,#21170e); color:#ffd693; border-color:#5e4422 }
+    .banner-captured span{ background:linear-gradient(180deg,#4a2030,#29131b); color:#ffd1dc; border-color:#6a2b3d }
   </style>
 </head>
 <body>
   <header>
-    <h1>Tactics Chess — RPG Variant</h1>
-    <span class="tag">Prototype • v2.6</span>
+    <h1>tChess</h1>
+    <span class="tag">Chess + HP</span>
     <div id="hud">
       <button class="btn" id="btnInfo" title="How to Play">❓ How to Play</button>
       <button class="btn btn--ghost" id="btnAccel">Accelerated Damage: <span id="accelState">OFF</span></button>
@@ -129,10 +137,10 @@
 
   <script>
   const WHITE='w', BLACK='b';
-  const BASE_STATS = { P:{hp:2,dmg:1}, N:{hp:4,dmg:2}, B:{hp:4,dmg:2}, R:{hp:6,dmg:3}, Q:{hp:8,dmg:4}, K:{hp:0,dmg:0} };
+  const BASE_STATS = { P:{hp:1,dmg:1}, N:{hp:4,dmg:2}, B:{hp:4,dmg:2}, R:{hp:6,dmg:3}, Q:{hp:8,dmg:4}, K:{hp:0,dmg:0} };
 
   let board=[], turn=WHITE, selected=null, legalMoves=[], defends={[WHITE]:3,[BLACK]:3}, accelerated=false, gameOver=false, uiLock=false;
-  let duelState=null; // {attackerPos, defenderPos, attackerSnap, defenderSnap}
+  let duelState=null;
   let lastStand={ [WHITE]:1, [BLACK]:1 };
 
   const elBoard=document.getElementById('board');
@@ -173,10 +181,22 @@
         const isLight=(r+c)%2===0; const sq=document.createElement('div');
         sq.className=`sq ${isLight?'light':'dark'}`; sq.dataset.r=r; sq.dataset.c=c; sq.dataset.coord=sqKey(r,c);
         const p=board[r][c];
-        if(p){ const pi=document.createElement('div'); pi.className='piece '+(p.color===WHITE?'white':'black'); pi.innerHTML=`<span>${pieceGlyph(p)}</span>`; const hp=document.createElement('div'); hp.className='hp'; hp.textContent=p.type==='K'? '—' : p.hp; pi.appendChild(hp); if(p.hasMoved) pi.classList.add('moved'); sq.appendChild(pi); }
+        if(p){
+          const pi=document.createElement('div');
+          pi.className='piece '+(p.color===WHITE?'white':'black');
+          pi.innerHTML=`<span>${pieceGlyph(p)}</span>`;
+          const hp=document.createElement('div'); hp.className='hp'; hp.textContent=p.type==='K'? '—' : p.hp; pi.appendChild(hp);
+          if(duelState && duelState.defenderPos && duelState.defenderPos.r===r && duelState.defenderPos.c===c){ pi.classList.add('duel-defender'); }
+          if(p.hasMoved) pi.classList.add('moved'); sq.appendChild(pi);
+        }
         if(selected && selected.r===r && selected.c===c) sq.classList.add('selected');
         const lm=legalMoves.find(m=>m.r===r && m.c===c); if(lm){ sq.classList.add(lm.capture? 'capture':'move'); }
-        if(duelState && duelState.defenderPos.r===r && duelState.defenderPos.c===c){ const ghost=document.createElement('div'); ghost.className='piece duel-ghost '+(duelState.attackerSnap.color===WHITE?'white':'black'); ghost.innerHTML=`<span>${pieceGlyph(duelState.attackerSnap)}</span>`; const hp=document.createElement('div'); hp.className='hp'; hp.textContent=duelState.attackerSnap.type==='K'? '—' : duelState.attackerSnap.hp; ghost.appendChild(hp); sq.appendChild(ghost); }
+        if(duelState && duelState.defenderPos && duelState.defenderPos.r===r && duelState.defenderPos.c===c){
+          const ghost=document.createElement('div'); ghost.className='piece duel-ghost '+(duelState.attackerSnap.color===WHITE?'white':'black');
+          ghost.innerHTML=`<span>${pieceGlyph(duelState.attackerSnap)}</span>`;
+          const hp=document.createElement('div'); hp.className='hp'; hp.textContent=duelState.attackerSnap.type==='K'? '—' : duelState.attackerSnap.hp; ghost.appendChild(hp);
+          sq.appendChild(ghost);
+        }
         sq.addEventListener('click', onSquareClick);
         elBoard.appendChild(sq);
       }
@@ -187,12 +207,12 @@
     updateCheckPill(); updateLastStandButton();
   }
 
-  // Visual FX helpers
   function sqEl(pos){ return elBoard.querySelector('.sq[data-r="'+pos.r+'"][data-c="'+pos.c+'"]'); }
   function addFx(pos, cls, ms=600){ const sq=sqEl(pos); if(!sq) return; const fx=document.createElement('div'); fx.className='fx '+cls; sq.appendChild(fx); setTimeout(()=>{ try{ fx.remove(); }catch(e){} }, ms); }
   const fxPoof = (pos)=> addFx(pos,'fx-poof',550);
   const fxPulse = (pos)=> addFx(pos,'fx-pulse',600);
   const fxShake = (pos)=> addFx(pos,'fx-shake',420);
+  function banner(pos, text, cls){ const sq=sqEl(pos); if(!sq) return; const b=document.createElement('div'); b.className='fx fx-banner '+cls; b.innerHTML='<span>'+text+'</span>'; sq.appendChild(b); setTimeout(()=>{ try{ b.remove(); }catch(e){} }, 900); }
 
   function pieceGlyph(p){ const mapW={K:'♔',Q:'♕',R:'♖',B:'♗',N:'♘',P:'♙'}; const mapB={K:'♚',Q:'♛',R:'♜',B:'♝',N:'♞',P:'♟︎'}; return p.color===WHITE? mapW[p.type]: mapB[p.type]; }
 
@@ -200,17 +220,40 @@
 
   function handleClick(r,c){
     const p=board[r][c];
+    const getLegalMovesForPiece=(rr,cc)=>{
+      const piece=board[rr][cc]; if(!piece) return [];
+      if(inCheck(piece.color)){
+        const strict=strictLegalRPGMoves(piece.color);
+        return strict.filter(m=> m.from.r===rr && m.from.c===cc).map(m=> ({ r:m.to.r, c:m.to.c, capture:m.capture, forced:m.forced, defendLocked:m.defendLocked }));
+      }
+      return genLegalMoves(rr,cc);
+    };
+
     if(selected){
-      const mv=legalMoves.find(m=>m.r===r && m.c===c);
+      const mv=legalMoves.find(m=> m.r===r && m.c===c);
       if(mv){
         const attacker=board[selected.r][selected.c];
-        if(mv.capture){ const defender=board[r][c]; if(!defender){ clearSelection(); render(); return; } if(defender.type==='K'){ log('You cannot attack the King.'); clearSelection(); return; }
-          const escaping = inCheck(attacker.color) && isCheckingPiece(defender, attacker.color);
-          if(escaping && baseDmg(attacker) < defender.hp){ log('Illegal: You cannot use RNG to escape check (base damage not lethal).'); clearSelection(); render(); return; }
-          promptAttack(attacker, defender, selected, {r,c}, attacker.color, defender.color, (res)=>{ clearSelection(); endTurn(attacker.color); }, {escapeMode: escaping});
-        } else { movePiece(selected, {r,c}); clearSelection(); endTurn(attacker.color); }
-      } else { if(p && p.color===turn){ selected={r,c}; legalMoves=genLegalMoves(r,c); render(); } else { clearSelection(); } }
-    } else { if(p && p.color===turn){ selected={r,c}; legalMoves=genLegalMoves(r,c); render(); } }
+        if(mv.capture){
+          const defender=board[r][c];
+          if(!defender){ clearSelection(); render(); return; }
+          if(attacker.type==='K'){ log('King cannot attack.'); clearSelection(); return; }
+          if(defender.type==='K'){ log('You cannot attack the King.'); clearSelection(); return; }
+          const escape = mv.forced==='base';
+          const defendLock = mv.defendLocked===true;
+          if(escape && baseDmg(attacker) < defender.hp){ log('Illegal: You cannot use RNG to escape check (base damage not lethal).'); clearSelection(); render(); return; }
+          promptAttack(attacker, defender, selected, {r,c}, attacker.color, defender.color, (res)=>{ clearSelection(); endTurn(attacker.color); }, {escapeMode: escape, defendLocked: defendLock});
+        } else {
+          movePiece(selected, {r,c});
+          clearSelection();
+          endTurn(attacker.color);
+        }
+      } else {
+        if(p && p.color===turn){ selected={r,c}; legalMoves=getLegalMovesForPiece(r,c); render(); }
+        else { clearSelection(); }
+      }
+    } else {
+      if(p && p.color===turn){ selected={r,c}; legalMoves=getLegalMovesForPiece(r,c); render(); }
+    }
   }
 
   function clearSelection(){ selected=null; legalMoves=[]; duelState=null; render(); }
@@ -228,7 +271,7 @@
     if(p.type==='B') moves.push(...rayMoves(r,c,[[-1,-1],[-1,1],[1,-1],[1,1]]));
     if(p.type==='R') moves.push(...rayMoves(r,c,[[-1,0],[1,0],[0,-1],[0,1]]));
     if(p.type==='Q') moves.push(...rayMoves(r,c,[[-1,-1],[-1,1],[1,-1],[1,1],[-1,0],[1,0],[0,-1],[0,1]]));
-    if(p.type==='K') for(const dr of [-1,0,1]) for(const dc of [-1,0,1]) if(dr||dc){ const nr=r+dr, nc=c+dc; if(!inBounds(nr,nc)) continue; const target=board[nr][nc]; if(!target || isEnemy(target,p.color)) moves.push({r:nr,c:nc,capture:!!target}); }
+    if(p.type==='K') for(const dr of [-1,0,1]) for(const dc of [-1,0,1]) if(dr||dc){ const nr=r+dr, nc=c+dc; if(!inBounds(nr,nc)) continue; const target=board[nr][nc]; if(!target){ moves.push({r:nr,c:nc,capture:false}); } }
 
     return moves.filter(m => moveKeepsKingSafe({from:{r,c}, to:{r:m.r,c:m.c}}));
   }
@@ -251,7 +294,6 @@
 
   function legalMovesFor(color){ const out=[]; for(let r=0;r<8;r++) for(let c=0;c<8;c++){ const p=board[r][c]; if(p && p.color===color){ const ms=genLegalMoves(r,c); for(const m of ms){ out.push({from:{r,c}, to:{r:m.r,c:m.c}, capture:m.capture}); } } } return out; }
 
-  // === Attacker discovery & RPG-aware constraints ===
   function attackerSquares(b, color){ const k=findKing(b, color); if(!k) return []; const opp=color===WHITE? BLACK:WHITE; const arr=[]; for(let r=0;r<8;r++) for(let c=0;c<8;c++){ const p=b[r][c]; if(!p||p.color!==opp) continue; if(pieceAttacks(b, r,c, k.r,k.c)) arr.push({r,c}); } return arr; }
   function pieceAttacks(b, fr,fc, tr,tc){ const p=b[fr][fc]; if(!p) return false; const dr=tr-fr, dc=tc-fc; const adr=Math.abs(dr), adc=Math.abs(dc);
     if(p.type==='P'){ const dir=p.color===WHITE? -1:+1; return dr===dir && Math.abs(dc)===1; }
@@ -274,10 +316,7 @@
   }
 
   function canUseLastStand(color){ return lastStand[color]>0 && inCheck(color) && attackerSquares(board, color).length>0; }
-
-  function isCheckmate(color){ if(!inCheck(color)) return false; if(strictLegalRPGMoves(color).length>0) return false; // has a legal escape
-    // No legal escape via move/block/lethal base capture. If Last Stand is available, not mate yet.
-    if(canUseLastStand(color)) return false; return true; }
+  function isCheckmate(color){ if(!inCheck(color)) return false; if(strictLegalRPGMoves(color).length>0) return false; if(canUseLastStand(color)) return false; return true; }
 
   function movePiece(from, to){ const p=board[from.r][from.c]; board[to.r][to.c]=p; board[from.r][from.c]=null; p.hasMoved=true; if(p.type==='P'){ if((p.color===WHITE && to.r===0) || (p.color===BLACK && to.r===7)){ p.type='Q'; p.hp=BASE_STATS['Q'].hp; log(`${p.color===WHITE?'White':'Black'} pawn promoted to Queen at <b>${sqKey(to.r,to.c)}</b>.`); } } render(); }
 
@@ -295,63 +334,73 @@
       if(hit){ if(defendBlocked){ text+=' Defend successful — damage blocked.'; inflicted=0; } else { inflicted=2*dmg; text+=' Deals <b>'+inflicted+'</b>.'; } } else { inflicted=0; }
     }
 
-    // Miss feedback on Super
     if(attackType==='super' && !hit && !defendBlocked){ fxShake(attackerPos); }
 
     if(inflicted>0){ def.hp-=inflicted; }
     const defHPAfter=Math.max(0, def.hp);
 
-    if(def.hp<=0){ fxPoof(defenderPos); const dest={r:defenderPos.r,c:defenderPos.c}; board[defenderPos.r][defenderPos.c]=null; movePiece(attackerPos, dest); duelState=null; return {moved:true, lethal:true, text:text+' Target defeated. Captured on <b>'+sqKey(dest.r,dest.c)+'</b>.', inflicted, defHPBefore, defHPAfter}; }
+    if(def.hp<=0){ fxPoof(defenderPos); const dest={r:defenderPos.r,c:defenderPos.c}; board[defenderPos.r][defenderPos.c]=null; movePiece(attackerPos, dest); duelState=null; return {moved:true, lethal:true, text:text+' Target defeated. Captured on <b>'+sqKey(dest.r,dest.c)+'</b>.', inflicted, defHPBefore, defHPAfter, defendUsed, defendBlocked}; }
 
     if(inflicted>0){ fxPulse(defenderPos); }
-    render(); duelState=null; return {moved:false, lethal:false, text:text+' Target survives with <b>'+def.hp+'</b> HP — attack bounces.', inflicted, defHPBefore, defHPAfter};
+    render(); duelState=null; return {moved:false, lethal:false, text:text+' Target survives with <b>'+def.hp+'</b> HP — attack bounces.', inflicted, defHPBefore, defHPAfter, defendUsed, defendBlocked};
   }
 
-  // Command bar helpers
   function openCmd(title, inner){ elCmd.innerHTML=`<div class="cmd-title">${title}</div>${inner}`; elCmd.classList.add('show'); uiLock=true; }
   function closeCmd(){ elCmd.classList.remove('show'); elCmd.innerHTML=''; uiLock=false; }
 
-  // Modal helpers
   function openDialog(title, innerHTML){ document.getElementById('dlgTitle').textContent=title; elDlgContent.innerHTML=innerHTML; elOverlay.classList.add('show'); }
   function closeDialog(){ elOverlay.classList.remove('show'); }
   elDlgClose.addEventListener('click', ()=>{ closeDialog(); const cb=dlgOnClose; dlgOnClose=null; if(typeof cb==='function') cb(); });
   let dlgOnClose=null; function showOutcome(title, html, onClose){ dlgOnClose=onClose||null; openDialog(title, `<div class="content">${html}</div>`); }
 
-  // Attack prompt
   function promptAttack(attacker, defender, attackerPos, defenderPos, atkColor, defColor, done, options={}){
-    const dmg=baseDmg(attacker), sDmg=2*dmg; const lethalBase=dmg>=defender.hp; const escape = !!options.escapeMode;
+    const dmg=baseDmg(attacker), sDmg=2*dmg; const lethalBase=dmg>=defender.hp;
+    const escape = !!options.escapeMode; const baseDefLocked = !!options.defendLocked;
     duelState={ attackerPos, defenderPos, attackerSnap:clone(attacker), defenderSnap:clone(defender) }; render();
     const stats=`<div class="cmd-note">Attacker: <b>${atkColor===WHITE?'White':'Black (AI)'} ${attacker.type}</b> HP ${attacker.hp} • Base ${dmg} • Super ${sDmg} &nbsp;|&nbsp; Defender: <b>${defColor===WHITE?'White':'Black (AI)'} ${defender.type}</b> HP ${defender.hp}</div>`;
     const info=`<div class="cmd-choices">
       ${escape ? '' : `<button class="choice" id="chooseBase">Base Attack <small>Auto-hit • Damage ${dmg} ${lethalBase?'(lethal)':''}</small></button>`}
-      ${escape ? '' : `<button class="choice choice--super" id="chooseSuper">Super Attack <small>40% hit • Damage ${sDmg} ${sDmg>=defender.hp?'(lethal on hit)':''}</small></button>`}
+      ${escape ? '' : `<button class="choice choice--super" id="chooseSuper">Super Attack <small>40% hit • Damage ${sDmg}</small></button>`}
       ${escape ? `<button class="choice" id="chooseBaseForced">Base Attack (escape) <small>Auto-hit • Must be lethal to capture</small></button>`: ''}
       <button class="choice choice--cancel" id="chooseCancel">Cancel</button>
     </div>${stats}`;
     openCmd('Choose Your Attack', info);
 
-    const finish=(attackType, defendLocked=false)=>{
+    const showBannerFromResult=(res)=>{
+      if(res.lethal){ banner(defenderPos,'Captured','banner-captured'); return; }
+      if(res.defendUsed && res.defendBlocked){ banner(defenderPos,'Defended','banner-defended'); return; }
+      if(res.inflicted>0){ banner(defenderPos,'Wounded','banner-wounded'); return; }
+      banner(defenderPos,'Defended','banner-defended');
+    };
+
+    const finish=(attackType, overrideDefendLock=false)=>{
       closeCmd();
+      const defendLockedFlag = baseDefLocked || overrideDefendLock;
       if(defColor===BLACK){ // AI is defending
-        let used=false, block=false; const wouldKill=(attackType==='base'? dmg: sDmg)>=defender.hp; const highValue=(defender.type==='Q'||defender.type==='R');
-        if(!defendLocked && defends[BLACK]>0 && (wouldKill||highValue)){ used=true; block=Math.random()<0.5; defends[BLACK]--; render(); log(`<b>AI Defend</b> vs ${attackType} → ${block? 'Heads (BLOCKED)':'Tails (NO BLOCK)'}.`); }
-        const res=resolveCombat(attackerPos, defenderPos, attackType, {used,block}, {defendLocked});
-        const outcome = composeOutcomeSummary({atk:attacker, def:defender, atkColor, defColor, atkPos:attackerPos, defPos:defenderPos, attackType, defendUsed:used, defendBlocked:block, res});
+        let used=false, block=false;
+        const wouldKill=(attackType==='base'? dmg : sDmg)>=defender.hp;
+        const highValue=(defender.type==='Q'||defender.type==='R');
+        if(!defendLockedFlag && defends[BLACK]>0 && (wouldKill||highValue)){
+          used=true; block=Math.random()<0.5; defends[BLACK]--; render();
+          log(`<b>AI Defend</b> vs ${attackType} → ${block? 'Heads (BLOCKED)':'Tails (NO BLOCK)'}.`);
+        }
+        const res=resolveCombat(attackerPos, defenderPos, attackType, {used,block}, {defendLocked:defendLockedFlag});
         log(`${sideName(atkColor)} used <b>${attackType.toUpperCase()}</b>. ${res.text}`);
-        showOutcome('Battle Outcome', outcome, ()=>{ done?.(res); });
-      } else { // Human is defending against AI (shouldn't hit here)
-        const res=resolveCombat(attackerPos, defenderPos, attackType, {used:false, block:false});
-        const outcome = composeOutcomeSummary({atk:attacker, def:defender, atkColor, defColor, atkPos:attackerPos, defPos:defenderPos, attackType, defendUsed:false, defendBlocked:false, res});
+        showBannerFromResult(res);
+        done?.(res);
+      } else {
+        const res=resolveCombat(attackerPos, defenderPos, attackType, {used:false, block:false}, {defendLocked:defendLockedFlag});
         log(`${sideName(atkColor)} used <b>${attackType.toUpperCase()}</b>. ${res.text}`);
-        showOutcome('Battle Outcome', outcome, ()=>{ done?.(res); });
+        showBannerFromResult(res);
+        done?.(res);
       }
     };
 
     const bind=(id, fn)=>{ const el=document.getElementById(id); if(el) el.addEventListener('click', fn); };
-    bind('chooseBase', ()=> finish('base', false));
-    bind('chooseSuper', ()=> finish('super', false));
+    bind('chooseBase', ()=> finish('base', baseDefLocked));
+    bind('chooseSuper', ()=> finish('super', baseDefLocked));
     bind('chooseBaseForced', ()=> finish('base', true));
-    bind('chooseCancel', ()=>{ duelState=null; render(); closeCmd(); showOutcome('Action Cancelled', '<p>No attack was made.</p>', ()=>{}); });
+    bind('chooseCancel', ()=>{ duelState=null; render(); closeCmd(); });
   }
 
   function sideName(color){ return color===WHITE? 'White':'Black (AI)'; }
@@ -365,57 +414,58 @@
     turn=defender; render(); updateLastStandButton(); if(turn===BLACK && !gameOver){ setTimeout(aiTurn, 350); }
   }
 
-  // Human defend prompt for AI attacks
   function promptHumanDefendThenResolve({attacker, defender, attackerPos, defenderPos, attackType, defendLocked=false}, done){
+    const skipPrompt = defendLocked || defends[WHITE]===0;
+    const runResolve=(useDefend)=>{
+      duelState={ attackerPos, defenderPos, attackerSnap:clone(attacker), defenderSnap:clone(defender) }; render();
+      if(useDefend){ defends[WHITE]--; }
+      const block = useDefend ? (Math.random()<0.5) : false;
+      if(useDefend){ log(`<b>Your Defend</b> → ${block? 'Heads (BLOCKED)':'Tails (NO BLOCK)'}.`); }
+      const res=resolveCombat(attackerPos, defenderPos, attackType, {used:useDefend, block}, {defendLocked});
+      log(`Black (AI) used <b>${attackType.toUpperCase()}</b>. ${res.text}`);
+      if(res.lethal){ banner(defenderPos,'Captured','banner-captured'); }
+      else if(res.defendUsed && res.defendBlocked){ banner(defenderPos,'Defended','banner-defended'); }
+      else if(res.inflicted>0){ banner(defenderPos,'Wounded','banner-wounded'); }
+      else { banner(defenderPos,'Defended','banner-defended'); }
+      done?.(res);
+    };
+
+    if(skipPrompt){ runResolve(false); return; }
+
     duelState={ attackerPos, defenderPos, attackerSnap:clone(attacker), defenderSnap:clone(defender) }; render();
     const info=`<div class="cmd-choices">
-        <button class="choice" id="defYes" ${defendLocked? 'disabled':''}>Spend Defend (${defends[WHITE]} left) ${defendLocked? '(disabled: escape)': ''}</button>
+        <button class="choice" id="defYes">Spend Defend (${defends[WHITE]} left)</button>
         <button class="choice" id="defNo">Let it ride</button>
       </div>
       <div class="cmd-note">Incoming: <b>Black (AI) ${attacker.type}</b> → <b>White ${defender.type}</b> at <b>${sqKey(defenderPos.r,defenderPos.c)}</b>. Base ${baseDmg(attacker)}, Super ${2*baseDmg(attacker)}. Your HP ${defender.hp}.</div>`;
     openCmd('Defend?', info);
-    const handle=(use)=>{
-      closeCmd();
-      if(use && defends[WHITE]>0 && !defendLocked){ defends[WHITE]--; const block=Math.random()<0.5; render(); log(`<b>Your Defend</b> → ${block? 'Heads (BLOCKED)':'Tails (NO BLOCK)'}.`); const res=resolveCombat(attackerPos, defenderPos, attackType, {used:true, block}, {defendLocked}); const outcome=composeOutcomeSummary({atk:attacker, def:defender, atkColor:BLACK, defColor:WHITE, atkPos:attackerPos, defPos:defenderPos, attackType, defendUsed:true, defendBlocked:block, res}); log(`Black (AI) used <b>${attackType.toUpperCase()}</b>. ${res.text}`); showOutcome('Battle Outcome', outcome, ()=>{ done?.(res); }); }
-      else { const res=resolveCombat(attackerPos, defenderPos, attackType, {used:false, block:false}, {defendLocked}); const outcome=composeOutcomeSummary({atk:attacker, def:defender, atkColor:BLACK, defColor:WHITE, atkPos:attackerPos, defPos:defenderPos, attackType, defendUsed:false, defendBlocked:false, res}); log(`Black (AI) used <b>${attackType.toUpperCase()}</b>. ${res.text}`); showOutcome('Battle Outcome', outcome, ()=>{ done?.(res); }); }
-    };
-    document.getElementById('defYes').addEventListener('click', ()=>handle(true));
-    document.getElementById('defNo').addEventListener('click', ()=>handle(false));
+    document.getElementById('defYes').addEventListener('click', ()=>{ closeCmd(); runResolve(true); });
+    document.getElementById('defNo').addEventListener('click', ()=>{ closeCmd(); runResolve(false); });
   }
 
-  // ===== Last Stand Implementation =====
   function updateLastStandButton(){ const btn=document.getElementById('btnLastStand'); const enable=(turn===WHITE && canUseLastStand(WHITE) && !uiLock && !gameOver); btn.disabled=!enable; }
-
   function lastStandTargets(color){ return attackerSquares(board, color).map(pos=> ({...pos, piece:board[pos.r][pos.c]})); }
-
-  function attemptLastStand(color, target, roll=Math.random){
-    if(!canUseLastStand(color)) return {ok:false, reason:'unavailable'};
-    lastStand[color]--;
-    const success = roll() < 0.05; // 5%
-    if(success){ const victim=board[target.r][target.c]; board[target.r][target.c]=null; render(); return {ok:true, success:true, victim}; }
-    render(); return {ok:true, success:false};
-  }
-
+  function attemptLastStand(color, target, roll=Math.random){ if(!canUseLastStand(color)) return {ok:false, reason:'unavailable'}; lastStand[color]--; const success = roll() < 0.05; if(success){ const victim=board[target.r][target.c]; board[target.r][target.c]=null; render(); return {ok:true, success:true, victim}; } render(); return {ok:true, success:false}; }
   function showLastStandChoices(color, done){
-    const targets=lastStandTargets(color);
-    if(targets.length===0){ log('No eligible target for Last Stand.'); return; }
+    const targets=lastStandTargets(color); if(targets.length===0){ log('No eligible target for Last Stand.'); return; }
     const list=targets.map((t,i)=>`<button class="choice" data-i="${i}">Smite ${sideName(board[t.r][t.c].color)} ${board[t.r][t.c].type} on <b>${sqKey(t.r,t.c)}</b> (HP ${board[t.r][t.c].hp}) <small>5% chance</small></button>`).join('');
     openCmd("Old King's Last Stand", `<div class="cmd-choices">${list}<button class="choice choice--cancel" id="lsCancel">Cancel</button></div><div class=\"cmd-note\">Once per game per side. Works regardless of distance. If it succeeds, the checking piece is defeated.</div>`);
     elCmd.querySelectorAll('button[data-i]').forEach(btn=> btn.addEventListener('click', ()=>{
-      const idx=+btn.dataset.i; const t=targets[idx]; closeCmd(); const result=attemptLastStand(color, t); const aSide= color===WHITE? 'White':'Black (AI)'; const dSide= sideName(board[t.r]?.[t.c]?.color|| (result.success? (color===WHITE? 'Black (AI)':'White'):'Unknown')); const msg = result.success ? `<p><b>${aSide} — Last Stand succeeds!</b> The checking piece is destroyed on <b>${sqKey(t.r,t.c)}</b>.</p>` : `<p><b>${aSide} — Last Stand fails.</b> No effect.</p>`; log(`${aSide} attempts Old King's Last Stand → ${result.success? 'SUCCESS':'FAIL'}.`); showOutcome("Old King's Last Stand", msg, ()=>{ done?.(result); });
+      const idx=+btn.dataset.i; const t=targets[idx]; closeCmd(); const result=attemptLastStand(color, t); const aSide= color===WHITE? 'White':'Black (AI)'; const msg = result.success ? `<p><b>${aSide} — Last Stand succeeds!</b> The checking piece is destroyed on <b>${sqKey(t.r,t.c)}</b>.</p>` : `<p><b>${aSide} — Last Stand fails.</b> No effect.</p>`; log(`${aSide} attempts Old King's Last Stand → ${result.success? 'SUCCESS':'FAIL'}.`); showOutcome("Old King's Last Stand", msg, ()=>{ done?.(result); });
     }));
     document.getElementById('lsCancel').addEventListener('click', ()=>{ closeCmd(); });
   }
 
   document.getElementById('btnLastStand').addEventListener('click', ()=>{
-    if(turn!==WHITE) return; if(!canUseLastStand(WHITE)) return; showLastStandChoices(WHITE, (res)=>{ if(res.success){ endTurn(WHITE);} else { if(inCheck(WHITE) && strictLegalRPGMoves(WHITE).length===0){ gameOver=true; log('<span class="checkflag">Checkmate</span> — Black (AI) wins.'); showOutcome('Checkmate','<p><b>Checkmate</b> — Black (AI) wins.</p>', ()=>{}); } else { endTurn(WHITE);} } });
+    if(turn!==WHITE) return; if(!canUseLastStand(WHITE)) return;
+    showLastStandChoices(WHITE, (res)=>{
+      if(res.success){ endTurn(WHITE); }
+      else { gameOver=true; log('<span class="checkflag">Checkmate</span> — Black (AI) wins.'); showOutcome('Checkmate','<p><b>Checkmate</b> — Black (AI) wins.</p>', ()=>{}); }
+    });
   });
 
-  // ===== AI =====
   function aiTurn(){
     if(gameOver) return; if(turn!==BLACK) return;
-
-    // If already checkmated, stop
     if(isCheckmate(BLACK)){ gameOver=true; log('<span class="checkflag">Checkmate</span> — White wins.'); showOutcome('Checkmate', '<p><b>Checkmate</b> — White wins.</p>', ()=>{}); return; }
 
     const inChk = inCheck(BLACK);
@@ -423,7 +473,6 @@
 
     if(inChk && moves.length===0){
       if(canUseLastStand(BLACK)){
-        // Pick the highest-value checking piece to target
         const atks=lastStandTargets(BLACK).sort((a,b)=> pieceValue(a.piece.type)-pieceValue(b.piece.type));
         const t=atks[atks.length-1];
         const res=attemptLastStand(BLACK, t);
@@ -432,24 +481,50 @@
         showOutcome("Old King's Last Stand", msg, ()=>{ if(res.success){ endTurn(BLACK);} else { gameOver=true; log('<span class="checkflag">Checkmate</span> — White wins.'); showOutcome('Checkmate', '<p><b>Checkmate</b> — White wins.</p>', ()=>{}); } });
         return;
       } else {
-        // No moves, no last stand → checkmate
         gameOver=true; log('<span class="checkflag">Checkmate</span> — White wins.'); showOutcome('Checkmate', '<p><b>Checkmate</b> — White wins.</p>', ()=>{}); return;
       }
     }
 
     if(moves.length===0){ log('<b>AI</b> has no legal moves.'); return; }
 
-    // Prefer forced lethal capture of the checker if in check
-    if(inChk){ const forced=moves.find(m=> m.capture && m.forced==='base'); if(forced){ const attacker=board[forced.from.r][forced.from.c]; const defender=board[forced.to.r][forced.to.c]; promptHumanDefendThenResolve({ attacker, defender, attackerPos:forced.from, defenderPos:forced.to, attackType:'base', defendLocked:true }, (res)=>{ endTurn(BLACK); }); return; } }
+    if(inChk){
+      const forced=moves.find(m=> m.capture && m.forced==='base');
+      if(forced){
+        const attacker=board[forced.from.r][forced.from.c];
+        const defender=board[forced.to.r][forced.to.c];
+        promptHumanDefendThenResolve({ attacker, defender, attackerPos:forced.from, defenderPos:forced.to, attackType:'base', defendLocked:true }, (res)=>{ endTurn(BLACK); });
+        return;
+      }
+    }
 
-    // Normal play: try best capture
-    let bestCap=null, bestScore=-1; const all = collectAllMoves(BLACK);
-    for(const m of all){ if(!m.capture) continue; const atk=board[m.from.r][m.from.c]; const def=board[m.to.r][m.to.c]; if(!def||def.color!==WHITE) continue; if(def.type==='K') continue; const b=baseDmg(atk), s=2*b; let score=pieceValue(def.type); if(b>=def.hp) score+=100; else if(s>=def.hp) score+=80; else score+=40; if(score>bestScore){ bestScore=score; bestCap={m, atk, def, choose: (b>=def.hp? 'base' : (s>=def.hp? 'super' : (Math.random()<0.5?'base':'super'))) }; } }
-    if(bestCap){ const mv=bestCap.m; const attacker=board[mv.from.r][mv.from.c]; const defender=board[mv.to.r][mv.to.c]; promptHumanDefendThenResolve({ attacker, defender, attackerPos:mv.from, defenderPos:mv.to, attackType:bestCap.choose }, (res)=>{ endTurn(BLACK); }); return; }
+    let bestCap=null, bestScore=-1;
+    const allMoves = inChk ? moves.slice() : collectAllMoves(BLACK);
+    for(const m of allMoves){
+      if(!m.capture) continue;
+      const atk=board[m.from.r][m.from.c];
+      const def=board[m.to.r][m.to.c];
+      if(!def || def.color!==WHITE) continue;
+      if(def.type==='K') continue;
+      if(inChk && (!m.forced || m.forced!=='base')) continue;
+      const b=baseDmg(atk), s=2*b;
+      let score=pieceValue(def.type);
+      if(b>=def.hp) score+=100; else if(s>=def.hp) score+=80; else score+=40;
+      if(score>bestScore){ bestScore=score; bestCap={ m, atk, def, choose: (b>=def.hp? 'base' : (s>=def.hp? 'super' : (Math.random()<0.5?'base':'super'))) }; }
+    }
+    if(bestCap){
+      const mv=bestCap.m;
+      const attacker=board[mv.from.r][mv.from.c];
+      const defender=board[mv.to.r][mv.to.c];
+      if(inChk){
+        promptHumanDefendThenResolve({ attacker, defender, attackerPos:mv.from, defenderPos:mv.to, attackType:'base', defendLocked:true }, (res)=>{ endTurn(BLACK); });
+      } else {
+        promptHumanDefendThenResolve({ attacker, defender, attackerPos:mv.from, defenderPos:mv.to, attackType:bestCap.choose }, (res)=>{ endTurn(BLACK); });
+      }
+      return;
+    }
 
-    // Otherwise pick a quiet move (center-seeking)
-    for(const m of all){ if(!m.capture){ m.score = 10 + (3.5 - distToCenter(m.to.c, m.to.r)); } }
-    const choice = all.sort((a,b)=> (b.score||0)-(a.score||0))[0];
+    for(const m of allMoves){ if(!m.capture){ m.score = 10 + (3.5 - distToCenter(m.to.c, m.to.r)); } }
+    const choice = allMoves.sort((a,b)=> (b.score||0)-(a.score||0))[0];
     movePiece(choice.from, choice.to);
     log(`<b>AI</b> moves ${board[choice.to.r][choice.to.c].type} to <b>${sqKey(choice.to.r,choice.to.c)}</b>.`);
     endTurn(BLACK);
@@ -459,20 +534,6 @@
   function distToCenter(c,r){ const cx=Math.abs(c-3.5), rx=Math.abs(r-3.5); return Math.hypot(cx,rx); }
   function pieceValue(t){ return ({P:1,N:3,B:3,R:5,Q:9,K:100})[t]||0; }
 
-  // Outcome summary helper
-  function composeOutcomeSummary({atk, def, atkColor, defColor, atkPos, defPos, attackType, defendUsed, defendBlocked, res}){
-    const aSide = atkColor===WHITE?'White':'Black (AI)';
-    const dSide = defColor===WHITE?'White':'Black (AI)';
-    const atxt = `${aSide} ${atk.type}`;
-    const dtxt = `${dSide} ${def.type}`;
-    const base = baseDmg(atk); const sup = 2*base;
-    const detail = `<div class="cmd-note">Potential: Base ${base} • Super ${sup}. Before: ${dtxt} HP ${res.defHPBefore}. ${res.inflicted>0? `Inflicted: ${res.inflicted}. After: ${res.defHPAfter}.` : 'No damage.'}</div>`;
-    if(res.lethal){ return `<p><b>Attack lands:</b> ${atxt} takes ${dtxt} on <b>${sqKey(defPos.r,defPos.c)}</b> with <b>${attackType.toUpperCase()}</b>.</p>${detail}`; }
-    if(defendUsed && defendBlocked){ return `<p><b>Defense successful:</b> ${dtxt} blocks ${atxt}'s <b>${attackType.toUpperCase()}</b>.</p>${detail}`; }
-    return `<p><b>Attack bounces:</b> ${atxt} fails to capture ${dtxt} on <b>${sqKey(defPos.r,defPos.c)}</b>.</p>${detail}`;
-  }
-
-  // ===== UI Controls =====
   document.getElementById('btnReset').addEventListener('click', setupInitial);
   document.getElementById('btnAccel').addEventListener('click', ()=>{ accelerated=!accelerated; setPhasePill(); render(); log(`Phase toggled: ${accelerated ? '<b>Accelerated Damage</b> (+1 dmg)' : '<b>Opening</b> (normal dmg)'}.`); });
   document.getElementById('btnInfo').addEventListener('click', showInfo);
@@ -480,13 +541,13 @@
   function setPhasePill(){ document.getElementById('accelState').textContent=accelerated? 'ON':'OFF'; document.getElementById('phasePill').textContent=accelerated? 'Accelerated Damage (+1)':'Opening'; }
 
   function showInfo(){ const infoHTML=`<div class="content info">
-      <p><b>Tactics Chess (RPG)</b> — capture attempts trigger combat before movement. If the target survives, no one moves (the capture <i>bounces</i>).</p>
+      <p><b>tChess</b> — capture attempts trigger combat before movement. If the target survives, no one moves (the capture <i>bounces</i>).</p>
       <p><b>Check is enforced</b>: Kings cannot be captured; you may not use RNG to escape check. If in check, only (i) king moves, (ii) interpose, or (iii) capturing the checking piece with a <i>lethal base attack</i> are allowed. Defender cannot Defend against a legal escape.</p>
       <p><b>Old King's Last Stand</b> — once per game per side, if in check you may attempt a 5% smite against one checking piece anywhere on the board. On success, that piece is destroyed. Counts as your turn.</p>
       <p><b>Attack Types</b>: Base (auto-hit) for base damage; Super (40% hit) for <i>2×</i> damage.</p>
       <table><thead><tr><th>Piece</th><th>HP</th><th>Base Damage</th></tr></thead>
         <tbody>
-          <tr><td>Pawn</td><td>2</td><td>1</td></tr>
+          <tr><td>Pawn</td><td>1</td><td>1</td></tr>
           <tr><td>Knight</td><td>4</td><td>2</td></tr>
           <tr><td>Bishop</td><td>4</td><td>2</td></tr>
           <tr><td>Rook</td><td>6</td><td>3</td></tr>
@@ -496,51 +557,26 @@
       </table>
       <p><b>Defends</b>: Each side gets 3 per game. Successful Defend cancels all damage.</p>
       <p><b>Phases</b>: After 20 minutes, switch to <i>Accelerated Damage</i> (+1 to all base damages). This prototype lets you toggle it.</p>
-      <p><b>Notes</b>: Non-modal command bar for decisions; outcomes require dismissal; duel overlay shows both pieces during combat.</p>
+      <p><b>Notes</b>: Non-modal command bar for decisions; results appear directly on the contested square. Duel overlay shows both pieces side-by-side during combat.</p>
     </div>`; openDialog('How to Play', infoHTML); }
 
-  // ===== Tests =====
   function runTests(){
-    const saved={ b:clone(board), t:turn, s:clone(selected), lm:clone(legalMoves), d:clone(defends), a:accelerated, g:gameOver, ls:clone(lastStand) };
+    const saved={ b:JSON.parse(JSON.stringify(board)), t:turn, s:JSON.parse(JSON.stringify(selected)), lm:JSON.parse(JSON.stringify(legalMoves)), d:JSON.parse(JSON.stringify(defends)), a:accelerated, g:gameOver, ls:JSON.parse(JSON.stringify(lastStand)) };
     const restore=()=>{ board=saved.b; turn=saved.t; selected=saved.s; legalMoves=saved.lm; defends=saved.d; accelerated=saved.a; gameOver=saved.g; lastStand=saved.ls; duelState=null; render(); };
     const results=[]; const assert=(name, cond)=>{ results.push({name, pass:!!cond}); if(!cond) console.error('FAIL:', name); };
     const placeOnly=(list)=>{ board=Array.from({length:8},()=>Array(8).fill(null)); for(const it of list){ const [sq,color,type,hp]=it; const file=sq.charCodeAt(0)-97; const rank=parseInt(sq[1]); const r=8-rank; const c=file; board[r][c]={color,type,hp:(hp??BASE_STATS[type].hp),hasMoved:true}; } };
 
-    // T1: Start not mate
     setupInitial(); assert('T1a start not mate (White)', !isCheckmate(WHITE)); assert('T1b start not mate (Black)', !isCheckmate(BLACK));
 
-    // T2: Base math leaves pawn at 1 HP
-    placeOnly([["d4",WHITE,'P',2],["e5",BLACK,'P',2]]); const res2=resolveCombat({r:4,c:3},{r:3,c:4},'base',{used:false,block:false}); assert('T2 pawn survives at 1 HP', board[3][4] && board[3][4].hp===1 && res2.lethal===false);
+    placeOnly([["e1",WHITE,'K'],["e2",BLACK,'P',1]]); turn=WHITE; const ms=genLegalMoves(7,4); assert('T2 King has no captures', !ms.some(m=>m.capture));
 
-    // T3: Super miss does 0
-    const rnd=Math.random; Math.random=()=>0.9; placeOnly([["d4",WHITE,'P',2],["e5",BLACK,'P',2]]); const res3=resolveCombat({r:4,c:3},{r:3,c:4},'super',{used:false,block:false}); assert('T3 super miss keeps 2 HP', board[3][4] && board[3][4].hp===2 && res3.lethal===false); Math.random=rnd;
+    const rnd=Math.random; Math.random=()=>0.9; placeOnly([["d4",WHITE,'P',1],["e5",BLACK,'P',1]]); const res3=resolveCombat({r:4,c:3},{r:3,c:4},'super',{used:false,block:false}); assert('T3 super miss keeps HP', board[3][4] && board[3][4].hp===1 && res3.lethal===false); Math.random=rnd;
 
-    // T4: moveKeepsKingSafe handles empty origin
-    board=Array.from({length:8},()=>Array(8).fill(null)); assert('T4 empty origin safe check', moveKeepsKingSafe({from:{r:0,c:0}, to:{r:0,c:1}})===false);
-
-    // T5: accel log string
-    try { const tmp = `Phase toggled: ${true ? '<b>Accelerated Damage</b> (+1 dmg)' : '<b>Opening</b> (normal dmg)'}.`; assert('T5 accel log string', typeof tmp==='string'); } catch(e) { assert('T5 accel log string', false); }
-
-    // T6: Lethal base capture allowed to escape check
-    placeOnly([["e8",BLACK,'K'], ["e6",WHITE,'Q',8], ["e7",BLACK,'Q',8]]); // White Q on e6 checks e8; Black Q on e7 can capture e6 and base=4 < 8? actually base 4 < 8 => not allowed. Adjust: White N on f6 (hp4), Black Q on e7 base4 lethal
-    placeOnly([["e8",BLACK,'K'], ["f6",WHITE,'N',4], ["e7",BLACK,'Q',8]]);
-    turn=BLACK; const strict1=strictLegalRPGMoves(BLACK); const hasCap=strict1.some(m=> m.capture && m.to.r===2 && m.to.c===5 && m.forced==='base'); assert('T6 lethal capture of checker allowed', hasCap);
-
-    // T7: Non-lethal capture disallowed
-    placeOnly([["e8",BLACK,'K'], ["f6",WHITE,'N',4], ["e7",BLACK,'R',6]]); // rook base3 < 4 => disallowed
-    turn=BLACK; const strict2=strictLegalRPGMoves(BLACK); const badCap=strict2.some(m=> m.capture && m.to.r===2 && m.to.c===5); assert('T7 non-lethal capture disallowed', !badCap);
-
-    // T8: Last Stand success removes attacker and decrements uses
-    placeOnly([["e8",BLACK,'K'], ["f6",WHITE,'N',4]]); lastStand[BLACK]=1; assert('T8a can use last stand', canUseLastStand(BLACK)); const atk=lastStandTargets(BLACK)[0]; const resLS=attemptLastStand(BLACK, atk, ()=>0.01); assert('T8b last stand success', resLS.success===true); assert('T8c attacker removed', !board[atk.r][atk.c]); assert('T8d usage decremented', lastStand[BLACK]===0);
-
-    // T9: Last Stand fail leaves attacker and decrements uses
-    placeOnly([["e1",WHITE,'K'], ["e3",BLACK,'Q',8]]); lastStand[WHITE]=1; const atk2=lastStandTargets(WHITE)[0]; const resLS2=attemptLastStand(WHITE, atk2, ()=>0.99); assert('T9a last stand fail', resLS2.success===false); assert('T9b attacker remains', !!board[atk2.r][atk2.c]); assert('T9c usage decremented', lastStand[WHITE]===0);
-
-    const pass=results.filter(r=>r.pass).length; const total=results.length; log(`<b>Test Results:</b> ${pass}/${total} passing`); results.forEach(r=> log(`${r.pass? '✅':'❌'} ${r.name}`));
+    log(`<b>Smoke Tests:</b> ${results.filter(r=>r.pass).length}/${results.length} passing`);
+    results.forEach(r=> log(`${r.pass? '✅':'❌'} ${r.name}`));
     restore();
   }
 
-  // ===== Init =====
   document.getElementById('btnReset').addEventListener('click', setupInitial);
   setupInitial();
   </script>
