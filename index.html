@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <!-- tChess build v2.8.2-left  
+       Changes: left-justified layout, pure-CSS square board (no JS sizing),
+       iOS-safe "padding-top:100%" sizer, Pawn HP=2, fixed green selection. -->
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>tChess — Chess + HP</title>
   <style>
-    :root{
-      --bg:#0f0f14; --panel:#161824; --panel-2:#1e2130; --accent:#c8ff4a; --accent-2:#8df; --danger:#ff5a7a; --ok:#59f28b; --warn:#ffd463;
-      --light:#e6edf3; --muted:#99a4b3;
-    }
+    :root{ --bg:#0f0f14; --panel:#161824; --panel-2:#1e2130; --accent:#c8ff4a; --accent-2:#8df; --danger:#ff5a7a; --ok:#59f28b; --warn:#ffd463; --light:#e6edf3; --muted:#99a4b3; }
     *{box-sizing:border-box}
     html,body{height:100%}
     body{margin:0; background:radial-gradient(1200px 800px at 20% 0%, #1b1f2a 0%, #0f0f14 55%, #0b0c10 100%); color:var(--light); font-family: ui-rounded, system-ui, -apple-system, "Segoe UI", Roboto, Arial; display:flex; flex-direction:column;}
@@ -20,16 +20,15 @@
     .btn--ghost{background:transparent; box-shadow:0 0 0 1px #2f3450 inset}
     .btn--accent{background:linear-gradient(180deg, #d5ff6a, #8bd83c); color:#0b0f12; box-shadow:0 0 0 1px #b5ef4a inset, 0 12px 24px rgba(173, 255, 89, .2)}
     .btn:disabled{opacity:.6; cursor:not-allowed}
-    main{display:grid; grid-template-columns:minmax(320px, 680px) 320px; gap:18px; padding:16px; flex:1; max-width:1120px; margin:0 auto; justify-content:center; align-items:start}
-    @media(max-width:980px){ main{grid-template-columns:1fr; max-width:720px;} }
-
-    .board-wrap{background:var(--panel); border:1px solid #2a2e40; border-radius:16px; padding:14px; box-shadow:0 20px 40px rgba(0,0,0,.25); margin:0 auto; width:100%; max-width:680px;}
-    @media(max-width:980px){
-      .board-wrap{max-width:94vw;}
-    }
-
-    /* The board always fills its container width; height is set by JS to match width. */
-    .board{display:grid; grid-template-columns:repeat(8,1fr); grid-auto-rows:1fr; border-radius:10px; overflow:hidden; width:100%; touch-action:manipulation;}
+    /* LEFT-JUSTIFIED LAYOUT (simpler & stable on mobile) */
+    main{display:grid; grid-template-columns:minmax(320px, 680px) 320px; gap:18px; padding:16px; flex:1; margin:0; max-width:none; justify-content:flex-start; align-items:start}
+    @media(max-width:980px){ main{grid-template-columns:1fr;} }
+    .board-wrap{background:var(--panel); border:1px solid #2a2e40; border-radius:16px; padding:14px; box-shadow:0 20px 40px rgba(0,0,0,.25); width:100%; max-width:680px;}
+    @media(max-width:980px){ .board-wrap{max-width:94vw;} }
+    /* PURE-CSS SQUARE BOARD (no JS height hacks) */
+    .board-area{ position:relative; width:100%; border-radius:10px; overflow:hidden; }
+    .board-sizer{ width:100%; padding-top:100%; } /* keeps the area perfectly square */
+    .board{ position:absolute; inset:0; display:grid; grid-template-columns:repeat(8,1fr); grid-auto-rows:1fr; }
     .sq{position:relative; display:flex; align-items:center; justify-content:center; font-size:34px; user-select:none}
     @media(max-width:480px){ .sq{font-size:28px;} }
     .light{background:#c2d1ee22}
@@ -49,20 +48,14 @@
     .pill{padding:3px 8px; border-radius:999px; background:#0d1117; border:1px solid #2a2e40}
     #log{flex:1; background:#0c0f17; border:1px solid #2a2e40; border-radius:10px; padding:10px; overflow:auto; font-size:13px; line-height:1.35}
     #log b{color:#d8e4ff}
-
-    /* Command bar (non-modal actions) */
     .cmdbar{margin-top:10px; background:linear-gradient(180deg,#1c1f2f,#14182b); border:1px solid #2a2e40; border-radius:12px; padding:10px; display:none}
     .cmdbar.show{display:block}
     .cmd-title{font-weight:800; margin:0 0 6px 0}
     .cmd-choices{display:flex; gap:10px; flex-wrap:wrap}
     .cmd-note{font-size:12px; color:var(--muted)}
-
-    /* Duel overlay (show both pieces side-by-side during combat) */
     .duel-ghost{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; opacity:0.95; transform:translateX(-32%); scale:.9}
     .duel-ghost .hp{left:4px; right:auto; background:#1a1208; border-color:#5c431f; color:#ffd08a}
     .duel-defender{ transform:translateX(32%); scale:.9 }
-
-    /* Modal (still used for Rules + Outcomes like Checkmate and Last Stand) */
     .overlay{position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(6,8,12,.6); backdrop-filter:blur(4px); z-index:10}
     .overlay.show{display:flex}
     .dialog{width:min(560px, 92vw); background:linear-gradient(180deg, #1c1f2f, #131629); border:1px solid #2f3450; border-radius:18px; box-shadow:0 30px 60px rgba(0,0,0,.5)}
@@ -80,11 +73,7 @@
     th{background:#1b2033}
     .footerline{display:flex; gap:8px; align-items:center; justify-content:flex-end; padding:0 14px 14px}
     .checkflag{color:var(--warn); font-weight:700}
-
-    /* Moved piece highlight (only last move; JS toggles) */
     .piece.moved{ box-shadow: inset 0 0 0 2px rgba(200,255,74,.55); border-radius:8px; }
-
-    /* FX animations for combat */
     .fx{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; }
     .fx-poof::before{ content:""; width:78%; height:78%; border-radius:50%; border:2px solid #ffb3c1; box-shadow:0 0 18px #ff6a88, inset 0 0 18px rgba(255,106,136,.35); animation:poof .5s ease-out forwards; }
     @keyframes poof{ from{ transform:scale(.6); opacity:1 } to{ transform:scale(1.5); opacity:0 } }
@@ -92,10 +81,6 @@
     @keyframes pulse{ 0%{ box-shadow:0 0 0 0 rgba(255,74,74,.9);} 100%{ box-shadow:0 0 0 18px rgba(255,74,74,0);} }
     .fx-shake{ animation:shake .4s ease-out; }
     @keyframes shake{ 10%,90%{ transform:translateX(-2px);} 20%,80%{ transform:translateX(4px);} 30%,50%,70%{ transform:translateX(-6px);} 40%,60%{ transform:translateX(6px);} }
-
-    @media(max-width:980px){ .board-wrap{ max-width:94vw } }
-
-    /* Result banner over the contested square */
     .fx-banner{ z-index:2 }
     .fx-banner span{ padding:6px 10px; border-radius:10px; font-weight:900; letter-spacing:.3px; border:1px solid #303a54; box-shadow:0 10px 24px rgba(0,0,0,.35)}
     .banner-defended span{ background:linear-gradient(180deg,#2b344a,#1a2134); color:#d7e3ff; border-color:#3a4c78 }
@@ -103,7 +88,7 @@
     .banner-captured span{ background:linear-gradient(180deg,#4a2030,#29131b); color:#ffd1dc; border-color:#6a2b3d }
   </style>
 </head>
-<body>
+<body data-build="2.8.2-left">
   <header>
     <h1>tChess</h1>
     <span class="tag">Chess + HP</span>
@@ -118,7 +103,10 @@
 
   <main>
     <section class="board-wrap">
-      <div id="board" class="board" aria-label="Chess board"></div>
+      <div class="board-area">
+        <div class="board-sizer"></div>
+        <div id="board" class="board" aria-label="Chess board"></div>
+      </div>
       <div id="cmdBar" class="cmdbar" aria-live="polite"></div>
     </section>
 
@@ -145,13 +133,12 @@
   </div>
 
   <script>
-  // ===== Constants / Stats =====
+  console.log('tChess build 2.8.2-left loaded');
   const WHITE='w', BLACK='b';
   const BASE_STATS = { P:{hp:2,dmg:1}, N:{hp:4,dmg:2}, B:{hp:4,dmg:2}, R:{hp:6,dmg:3}, Q:{hp:8,dmg:4}, K:{hp:0,dmg:0} };
 
   let board=[], turn=WHITE, selected=null, legalMoves=[], defends={[WHITE]:3,[BLACK]:3}, accelerated=false, gameOver=false, uiLock=false;
-  let duelState=null;
-  let lastStand={ [WHITE]:1, [BLACK]:1 };
+  let duelState=null; let lastStand={ [WHITE]:1, [BLACK]:1 };
 
   const elBoard=document.getElementById('board');
   const elLog=document.getElementById('log');
@@ -161,34 +148,14 @@
   const elDlgClose=document.getElementById('dlgClose');
   const elCmd=document.getElementById('cmdBar');
 
-  // === Robust square sizing for iOS/Android ===
-  function sizeBoard(){
-    const w = Math.max(elBoard.clientWidth || elBoard.getBoundingClientRect().width, 240);
-    elBoard.style.height = w + 'px';
-  }
-  const _ro = new ResizeObserver(sizeBoard);
-  _ro.observe(elBoard);
-  window.addEventListener('resize', sizeBoard, {passive:true});
-  window.addEventListener('orientationchange', ()=> setTimeout(sizeBoard,60), {passive:true});
-
-  // Keep board square & stable on mobile
-  function sizeBoard(){
-    const w = elBoard.getBoundingClientRect().width;
-    elBoard.style.height = w + 'px';
-  }
-  window.addEventListener('resize', sizeBoard, {passive:true});
-  window.addEventListener('orientationchange', ()=> setTimeout(sizeBoard, 50), {passive:true});
-
   const clone = (o)=> JSON.parse(JSON.stringify(o));
   const inBounds=(r,c)=> r>=0&&r<8&&c>=0&&c<8;
   const sqKey=(r,c)=> String.fromCharCode(97+c)+(8-r);
   const isEnemy=(p,color)=> p&&p.color!==color;
   const isEmpty=(r,c)=> !board[r][c];
   const baseDmg=(piece)=> BASE_STATS[piece.type].dmg + (accelerated?1:0);
-
   function log(msg){ const p=document.createElement('div'); p.innerHTML=msg; elLog.append(p); elLog.scrollTop=elLog.scrollHeight; }
 
-  // ===== Setup / Render =====
   function setupInitial(){
     board = Array.from({length:8}, ()=> Array(8).fill(null));
     const place=(r,c,color,type)=> board[r][c]={color,type,hp:BASE_STATS[type].hp,hasMoved:false};
@@ -199,7 +166,7 @@
     place(7,3,WHITE,'Q'); place(0,3,BLACK,'Q');
     place(7,4,WHITE,'K'); place(0,4,BLACK,'K');
     turn=WHITE; selected=null; legalMoves=[]; defends[WHITE]=3; defends[BLACK]=3; accelerated=false; gameOver=false; duelState=null; lastStand={[WHITE]:1,[BLACK]:1}; closeCmd();
-    render(); setPhasePill(); updateCheckPill(); updateLastStandButton(); sizeBoard(); sizeBoard(); sizeBoard();
+    render(); setPhasePill(); updateCheckPill(); updateLastStandButton();
     log('<b>New game</b>: White to move.');
   }
 
@@ -210,23 +177,12 @@
         const isLight=(r+c)%2===0; const sq=document.createElement('div');
         sq.className=`sq ${isLight?'light':'dark'}`; sq.dataset.r=r; sq.dataset.c=c; sq.dataset.coord=sqKey(r,c);
         const p=board[r][c];
-        if(p){
-          const pi=document.createElement('div');
-          pi.className='piece '+(p.color===WHITE?'white':'black');
-          pi.innerHTML=`<span>${pieceGlyph(p)}</span>`;
-          const hp=document.createElement('div'); hp.className='hp'; hp.textContent=p.type==='K'? '—' : p.hp; pi.appendChild(hp);
+        if(p){ const pi=document.createElement('div'); pi.className='piece '+(p.color===WHITE?'white':'black'); pi.innerHTML=`<span>${pieceGlyph(p)}</span>`; const hp=document.createElement('div'); hp.className='hp'; hp.textContent=p.type==='K'? '—' : p.hp; pi.appendChild(hp);
           if(duelState && duelState.defenderPos && duelState.defenderPos.r===r && duelState.defenderPos.c===c){ pi.classList.add('duel-defender'); }
-          if(p.hasMoved) pi.classList.add('moved');
-          sq.appendChild(pi);
-        }
+          if(p.hasMoved) pi.classList.add('moved'); sq.appendChild(pi); }
         if(selected && selected.r===r && selected.c===c) sq.classList.add('selected');
         const lm=legalMoves.find(m=>m.r===r && m.c===c); if(lm){ sq.classList.add(lm.capture? 'capture':'move'); }
-        if(duelState && duelState.defenderPos && duelState.defenderPos.r===r && duelState.defenderPos.c===c){
-          const ghost=document.createElement('div'); ghost.className='piece duel-ghost '+(duelState.attackerSnap.color===WHITE?'white':'black');
-          ghost.innerHTML=`<span>${pieceGlyph(duelState.attackerSnap)}</span>`;
-          const hp=document.createElement('div'); hp.className='hp'; hp.textContent=duelState.attackerSnap.type==='K'? '—' : duelState.attackerSnap.hp; ghost.appendChild(hp);
-          sq.appendChild(ghost);
-        }
+        if(duelState && duelState.defenderPos && duelState.defenderPos.r===r && duelState.defenderPos.c===c){ const ghost=document.createElement('div'); ghost.className='piece duel-ghost '+(duelState.attackerSnap.color===WHITE?'white':'black'); ghost.innerHTML=`<span>${pieceGlyph(duelState.attackerSnap)}</span>`; const hp=document.createElement('div'); hp.className='hp'; hp.textContent=duelState.attackerSnap.type==='K'? '—' : duelState.attackerSnap.hp; ghost.appendChild(hp); sq.appendChild(ghost); }
         sq.addEventListener('click', onSquareClick);
         elBoard.appendChild(sq);
       }
@@ -234,10 +190,9 @@
     document.getElementById('turnPill').textContent=(turn===WHITE? 'White':'Black (AI)');
     document.getElementById('defWhite').textContent=defends[WHITE];
     document.getElementById('defBlack').textContent=defends[BLACK];
-    updateCheckPill(); updateLastStandButton(); sizeBoard(); sizeBoard();
+    updateCheckPill(); updateLastStandButton();
   }
 
-  // Visual helpers
   function sqEl(pos){ return elBoard.querySelector('.sq[data-r="'+pos.r+'"][data-c="'+pos.c+'"]'); }
   function addFx(pos, cls, ms=600){ const sq=sqEl(pos); if(!sq) return; const fx=document.createElement('div'); fx.className='fx '+cls; sq.appendChild(fx); setTimeout(()=>{ try{ fx.remove(); }catch(e){} }, ms); }
   const fxPoof = (pos)=> addFx(pos,'fx-poof',550);
@@ -325,7 +280,6 @@
 
   function legalMovesFor(color){ const out=[]; for(let r=0;r<8;r++) for(let c=0;c<8;c++){ const p=board[r][c]; if(p && p.color===color){ const ms=genLegalMoves(r,c); for(const m of ms){ out.push({from:{r,c}, to:{r:m.r,c:m.c}, capture:m.capture}); } } } return out; }
 
-  // === Attacker discovery & RPG-aware constraints ===
   function attackerSquares(b, color){ const k=findKing(b, color); if(!k) return []; const opp=color===WHITE? BLACK:WHITE; const arr=[]; for(let r=0;r<8;r++) for(let c=0;c<8;c++){ const p=b[r][c]; if(!p||p.color!==opp) continue; if(pieceAttacks(b, r,c, k.r,k.c)) arr.push({r,c}); } return arr; }
   function pieceAttacks(b, fr,fc, tr,tc){ const p=b[fr][fc]; if(!p) return false; const dr=tr-fr, dc=tc-fc; const adr=Math.abs(dr), adc=Math.abs(dc);
     if(p.type==='P'){ const dir=p.color===WHITE? -1:+1; return dr===dir && Math.abs(dc)===1; }
@@ -348,12 +302,10 @@
   }
 
   function canUseLastStand(color){ return lastStand[color]>0 && inCheck(color) && attackerSquares(board, color).length>0; }
-
   function isCheckmate(color){ if(!inCheck(color)) return false; if(strictLegalRPGMoves(color).length>0) return false; if(canUseLastStand(color)) return false; return true; }
 
   function movePiece(from, to){
-    // Clear previous "moved" flags so only the last move glows
-    for(let r=0;r<8;r++) for(let c=0;c<8;c++){ const p=board[r][c]; if(p) p.hasMoved=false; }
+    for(let r=0;r<8;r++) for(let c=0;c<8;c++){ const _p=board[r][c]; if(_p) _p.hasMoved=false; }
     const p=board[from.r][from.c];
     board[to.r][to.c]=p; board[from.r][from.c]=null; p.hasMoved=true;
     if(p.type==='P'){ if((p.color===WHITE && to.r===0) || (p.color===BLACK && to.r===7)){ p.type='Q'; p.hp=BASE_STATS['Q'].hp; log(`${p.color===WHITE?'White':'Black'} pawn promoted to Queen at <b>${sqKey(to.r,to.c)}</b>.`); } }
@@ -379,68 +331,53 @@
     if(inflicted>0){ def.hp-=inflicted; }
     const defHPAfter=Math.max(0, def.hp);
 
-    if(def.hp<=0){
-      fxPoof(defenderPos);
-      const dest={r:defenderPos.r,c:defenderPos.c};
-      board[defenderPos.r][defenderPos.c]=null;
-      movePiece(attackerPos, dest);
-      duelState=null;
-      return {moved:true, lethal:true, text:text+' Target defeated. Captured on <b>'+sqKey(dest.r,dest.c)+'</b>.', inflicted, defHPBefore, defHPAfter, defendUsed, defendBlocked};
-    }
+    if(def.hp<=0){ fxPoof(defenderPos); const dest={r:defenderPos.r,c:defenderPos.c}; board[defenderPos.r][defenderPos.c]=null; movePiece(attackerPos, dest); duelState=null; return {moved:true, lethal:true, text:text+' Target defeated. Captured on <b>'+sqKey(dest.r,dest.c)+'</b>.', inflicted, defHPBefore, defHPAfter, defendUsed, defendBlocked}; }
 
     if(inflicted>0){ fxPulse(defenderPos); }
     render(); duelState=null; return {moved:false, lethal:false, text:text+' Target survives with <b>'+def.hp+'</b> HP — attack bounces.', inflicted, defHPBefore, defHPAfter, defendUsed, defendBlocked};
   }
 
-  // Command bar helpers
-  function openCmd(title, inner){ elCmd.innerHTML=`<div class="cmd-title">${title}</div>${inner}`; elCmd.classList.add('show'); uiLock=true; }
+  function openCmd(title, inner){ elCmd.innerHTML='<div class="cmd-title">'+title+'</div>'+inner; elCmd.classList.add('show'); uiLock=true; }
   function closeCmd(){ elCmd.classList.remove('show'); elCmd.innerHTML=''; uiLock=false; }
 
-  // Modal helpers
   function openDialog(title, innerHTML){ document.getElementById('dlgTitle').textContent=title; elDlgContent.innerHTML=innerHTML; elOverlay.classList.add('show'); }
   function closeDialog(){ elOverlay.classList.remove('show'); }
   elDlgClose.addEventListener('click', ()=>{ closeDialog(); const cb=dlgOnClose; dlgOnClose=null; if(typeof cb==='function') cb(); });
-  let dlgOnClose=null; function showOutcome(title, html, onClose){ dlgOnClose=onClose||null; openDialog(title, `<div class="content">${html}</div>`); }
+  let dlgOnClose=null; function showOutcome(title, html, onClose){ dlgOnClose=onClose||null; openDialog(title, '<div class="content">'+html+'</div>'); }
 
-  // Attack prompt
   function promptAttack(attacker, defender, attackerPos, defenderPos, atkColor, defColor, done, options={}){
     const dmg=baseDmg(attacker), sDmg=2*dmg; const lethalBase=dmg>=defender.hp;
     const escape = !!options.escapeMode; const baseDefLocked = !!options.defendLocked;
     duelState={ attackerPos, defenderPos, attackerSnap:clone(attacker), defenderSnap:clone(defender) }; render();
-    const stats=`<div class="cmd-note">Attacker: <b>${atkColor===WHITE?'White':'Black (AI)'} ${attacker.type}</b> HP ${attacker.hp} • Base ${dmg} • Super ${sDmg} &nbsp;|&nbsp; Defender: <b>${defColor===WHITE?'White':'Black (AI)'} ${defender.type}</b> HP ${defender.hp}</div>`;
-    const info=`<div class="cmd-choices">
-      ${escape ? '' : `<button class="choice" id="chooseBase">Base Attack <small>Auto-hit • Damage ${dmg} ${lethalBase?'(lethal)':''}</small></button>`}
-      ${escape ? '' : `<button class="choice choice--super" id="chooseSuper">Super Attack <small>40% hit • Damage ${sDmg}</small></button>`}
-      ${escape ? `<button class="choice" id="chooseBaseForced">Base Attack (escape) <small>Auto-hit • Must be lethal to capture</small></button>`: ''}
-      <button class="choice choice--cancel" id="chooseCancel">Cancel</button>
-    </div>${stats}`;
+    const stats='<div class="cmd-note">Attacker: <b>'+(atkColor===WHITE?'White':'Black (AI)')+' '+attacker.type+'</b> HP '+attacker.hp+' • Base '+dmg+' • Super '+sDmg+' &nbsp;|&nbsp; Defender: <b>'+(defColor===WHITE?'White':'Black (AI)')+' '+defender.type+'</b> HP '+defender.hp+'</div>';
+    const info='<div class="cmd-choices">'+
+      (escape ? '' : '<button class="choice" id="chooseBase">Base Attack <small>Auto-hit • Damage '+dmg+' '+(lethalBase?'(lethal)':'')+'</small></button>')+
+      (escape ? '' : '<button class="choice choice--super" id="chooseSuper">Super Attack <small>40% hit • Damage '+sDmg+'</small></button>')+
+      (escape ? '<button class="choice" id="chooseBaseForced">Base Attack (escape) <small>Auto-hit • Must be lethal to capture</small></button>' : '')+
+      '<button class="choice choice--cancel" id="chooseCancel">Cancel</button>'+
+    '</div>'+stats;
     openCmd('Choose Your Attack', info);
 
-    const showBannerFromResult=(res)=>{
-      if(res.lethal){ banner(defenderPos,'Captured','banner-captured'); return; }
-      if(res.defendUsed && res.defendBlocked){ banner(defenderPos,'Defended','banner-defended'); return; }
-      if(res.inflicted>0){ banner(defenderPos,'Wounded','banner-wounded'); return; }
-      banner(defenderPos,'Defended','banner-defended');
-    };
+    const showBannerFromResult=(res)=>{ if(res.lethal){ banner(defenderPos,'Captured','banner-captured'); return; } if(res.defendUsed && res.defendBlocked){ banner(defenderPos,'Defended','banner-defended'); return; } if(res.inflicted>0){ banner(defenderPos,'Wounded','banner-wounded'); return; } banner(defenderPos,'Defended','banner-defended'); };
 
     const finish=(attackType, overrideDefendLock=false)=>{
       closeCmd();
       const defendLockedFlag = baseDefLocked || overrideDefendLock;
-      if(defColor===BLACK){ // AI is defending
+      if(defColor===BLACK){
         let used=false, block=false;
         const wouldKill=(attackType==='base'? dmg : sDmg)>=defender.hp;
         const highValue=(defender.type==='Q'||defender.type==='R');
         if(!defendLockedFlag && defends[BLACK]>0 && (wouldKill||highValue)){
           used=true; block=Math.random()<0.5; defends[BLACK]--; render();
-          log(`<b>AI Defend</b> vs ${attackType} → ${block? 'Heads (BLOCKED)':'Tails (NO BLOCK)'}.`);
+          log('<b>AI Defend</b> vs '+attackType+' → '+(block? 'Heads (BLOCKED)':'Tails (NO BLOCK)')+'.');
         }
         const res=resolveCombat(attackerPos, defenderPos, attackType, {used,block}, {defendLocked:defendLockedFlag});
-        log(`${sideName(atkColor)} used <b>${attackType.toUpperCase()}</b>. ${res.text}`);
+        log(sideName(atkColor)+' used <b>'+attackType.toUpperCase()+'</b>. '+res.text);
         showBannerFromResult(res);
         done?.(res);
       } else {
         const res=resolveCombat(attackerPos, defenderPos, attackType, {used:false, block:false}, {defendLocked:defendLockedFlag});
-        log(`${sideName(atkColor)} used <b>${attackType.toUpperCase()}</b>. ${res.text}`);
+        log(sideName(atkColor)+' used <b>'+attackType.toUpperCase()+'</b>. '+res.text);
         showBannerFromResult(res);
         done?.(res);
       }
@@ -459,21 +396,20 @@
     const defender = attackingColor===WHITE? BLACK:WHITE;
     render();
     if(isCheckmate(defender)){
-      gameOver=true; const msg = `<p><b>Checkmate</b> — ${sideName(attackingColor)} wins.</p>`; log(`<span class="checkflag">Checkmate</span> — ${sideName(attackingColor)} wins.`); showOutcome('Checkmate', msg, ()=>{}); return; }
-    if(inCheck(defender)){ log(`<span class="checkflag">Check!</span> on ${defender===WHITE?'White':'Black (AI)'} .`); }
+      gameOver=true; const msg = '<p><b>Checkmate</b> — '+sideName(attackingColor)+' wins.</p>'; log('<span class="checkflag">Checkmate</span> — '+sideName(attackingColor)+' wins.'); showOutcome('Checkmate', msg, ()=>{}); return; }
+    if(inCheck(defender)){ log('<span class="checkflag">Check!</span> on '+(defender===WHITE?'White':'Black (AI)')+' .'); }
     turn=defender; render(); updateLastStandButton(); if(turn===BLACK && !gameOver){ setTimeout(aiTurn, 350); }
   }
 
-  // Human defend prompt for AI attacks
   function promptHumanDefendThenResolve({attacker, defender, attackerPos, defenderPos, attackType, defendLocked=false}, done){
     const skipPrompt = defendLocked || defends[WHITE]===0;
     const runResolve=(useDefend)=>{
       duelState={ attackerPos, defenderPos, attackerSnap:clone(attacker), defenderSnap:clone(defender) }; render();
       if(useDefend){ defends[WHITE]--; }
       const block = useDefend ? (Math.random()<0.5) : false;
-      if(useDefend){ log(`<b>Your Defend</b> → ${block? 'Heads (BLOCKED)':'Tails (NO BLOCK)'}.`); }
+      if(useDefend){ log('<b>Your Defend</b> → '+(block? 'Heads (BLOCKED)':'Tails (NO BLOCK)')+'.'); }
       const res=resolveCombat(attackerPos, defenderPos, attackType, {used:useDefend, block}, {defendLocked});
-      log(`Black (AI) used <b>${attackType.toUpperCase()}</b>. ${res.text}`);
+      log('Black (AI) used <b>'+attackType.toUpperCase()+'</b>. '+res.text);
       if(res.lethal){ banner(defenderPos,'Captured','banner-captured'); }
       else if(res.defendUsed && res.defendBlocked){ banner(defenderPos,'Defended','banner-defended'); }
       else if(res.inflicted>0){ banner(defenderPos,'Wounded','banner-wounded'); }
@@ -484,26 +420,25 @@
     if(skipPrompt){ runResolve(false); return; }
 
     duelState={ attackerPos, defenderPos, attackerSnap:clone(attacker), defenderSnap:clone(defender) }; render();
-    const info=`<div class="cmd-choices">
-        <button class="choice" id="defYes">Spend Defend (${defends[WHITE]} left)</button>
-        <button class="choice" id="defNo">Let it ride</button>
-      </div>
-      <div class="cmd-note">Incoming: <b>Black (AI) ${attacker.type}</b> → <b>White ${defender.type}</b> at <b>${sqKey(defenderPos.r,defenderPos.c)}</b>. Base ${baseDmg(attacker)}, Super ${2*baseDmg(attacker)}. Your HP ${defender.hp}.</div>`;
+    const info='<div class="cmd-choices">'+
+        '<button class="choice" id="defYes">Spend Defend ('+defends[WHITE]+' left)</button>'+
+        '<button class="choice" id="defNo">Let it ride</button>'+
+      '</div>'+
+      '<div class="cmd-note">Incoming: <b>Black (AI) '+attacker.type+'</b> → <b>White '+defender.type+'</b> at <b>'+sqKey(defenderPos.r,defenderPos.c)+'</b>. Base '+baseDmg(attacker)+', Super '+(2*baseDmg(attacker))+'. Your HP '+defender.hp+'.</div>';
     openCmd('Defend?', info);
     document.getElementById('defYes').addEventListener('click', ()=>{ closeCmd(); runResolve(true); });
     document.getElementById('defNo').addEventListener('click', ()=>{ closeCmd(); runResolve(false); });
   }
 
-  // ===== Last Stand =====
   function updateLastStandButton(){ const btn=document.getElementById('btnLastStand'); const enable=(turn===WHITE && canUseLastStand(WHITE) && !uiLock && !gameOver); btn.disabled=!enable; }
   function lastStandTargets(color){ return attackerSquares(board, color).map(pos=> ({...pos, piece:board[pos.r][pos.c]})); }
   function attemptLastStand(color, target, roll=Math.random){ if(!canUseLastStand(color)) return {ok:false, reason:'unavailable'}; lastStand[color]--; const success = roll() < 0.05; if(success){ const victim=board[target.r][target.c]; board[target.r][target.c]=null; render(); return {ok:true, success:true, victim}; } render(); return {ok:true, success:false}; }
   function showLastStandChoices(color, done){
     const targets=lastStandTargets(color); if(targets.length===0){ log('No eligible target for Last Stand.'); return; }
-    const list=targets.map((t,i)=>`<button class="choice" data-i="${i}">Smite ${sideName(board[t.r][t.c].color)} ${board[t.r][t.c].type} on <b>${sqKey(t.r,t.c)}</b> (HP ${board[t.r][t.c].hp}) <small>5% chance</small></button>`).join('');
-    openCmd("Old King's Last Stand", `<div class="cmd-choices">${list}<button class="choice choice--cancel" id="lsCancel">Cancel</button></div><div class=\"cmd-note\">Once per game per side. Works regardless of distance. If it succeeds, the checking piece is defeated.</div>`);
+    const list=targets.map((t,i)=>'<button class="choice" data-i="'+i+'">Smite '+sideName(board[t.r][t.c].color)+' '+board[t.r][t.c].type+' on <b>'+sqKey(t.r,t.c)+'</b> (HP '+board[t.r][t.c].hp+') <small>5% chance</small></button>').join('');
+    openCmd("Old King's Last Stand", '<div class="cmd-choices">'+list+'<button class="choice choice--cancel" id="lsCancel">Cancel</button></div><div class=\"cmd-note\">Once per game per side. Works regardless of distance. If it succeeds, the checking piece is defeated.</div>');
     elCmd.querySelectorAll('button[data-i]').forEach(btn=> btn.addEventListener('click', ()=>{
-      const idx=+btn.dataset.i; const t=targets[idx]; closeCmd(); const result=attemptLastStand(color, t); const aSide= color===WHITE? 'White':'Black (AI)'; const msg = result.success ? `<p><b>${aSide} — Last Stand succeeds!</b> The checking piece is destroyed on <b>${sqKey(t.r,t.c)}</b>.</p>` : `<p><b>${aSide} — Last Stand fails.</b> No effect.</p>`; log(`${aSide} attempts Old King's Last Stand → ${result.success? 'SUCCESS':'FAIL'}.`); showOutcome("Old King's Last Stand", msg, ()=>{ done?.(result); });
+      const idx=+btn.dataset.i; const t=targets[idx]; closeCmd(); const result=attemptLastStand(color, t); const aSide= color===WHITE? 'White':'Black (AI)'; const msg = result.success ? '<p><b>'+aSide+' — Last Stand succeeds!</b> The checking piece is destroyed on <b>'+sqKey(t.r,t.c)+'</b>.</p>' : '<p><b>'+aSide+' — Last Stand fails.</b> No effect.</p>'; log(aSide+' attempts Old King\'s Last Stand → '+(result.success? 'SUCCESS':'FAIL')+'.'); showOutcome("Old King's Last Stand", msg, ()=>{ done?.(result); });
     }));
     document.getElementById('lsCancel').addEventListener('click', ()=>{ closeCmd(); });
   }
@@ -516,10 +451,9 @@
     });
   });
 
-  // ===== AI =====
   function aiTurn(){
     if(gameOver) return; if(turn!==BLACK) return;
-    if(isCheckmate(BLACK)){ gameOver=true; log('<span class="checkflag">Checkmate</span> — White wins.</p>'); showOutcome('Checkmate', '<p><b>Checkmate</b> — White wins.</p>', ()=>{}); return; }
+    if(isCheckmate(BLACK)){ gameOver=true; log('<span class="checkflag">Checkmate</span> — White wins.'); showOutcome('Checkmate', '<p><b>Checkmate</b> — White wins.</p>', ()=>{}); return; }
 
     const inChk = inCheck(BLACK);
     const moves = inChk ? strictLegalRPGMoves(BLACK) : collectAllMoves(BLACK);
@@ -529,12 +463,12 @@
         const atks=lastStandTargets(BLACK).sort((a,b)=> pieceValue(a.piece.type)-pieceValue(b.piece.type));
         const t=atks[atks.length-1];
         const res=attemptLastStand(BLACK, t);
-        const msg = res.success ? `<p><b>Black (AI) — Last Stand succeeds!</b> The checking piece is destroyed on <b>${sqKey(t.r,t.c)}</b>.</p>` : `<p><b>Black (AI) — Last Stand fails.</b> No effect.</p>`;
-        log(`Black (AI) attempts Old King's Last Stand → ${res.success? 'SUCCESS':'FAIL'}.`);
-        showOutcome("Old King's Last Stand", msg, ()=>{ if(res.success){ endTurn(BLACK);} else { gameOver=true; log('<span class="checkflag">Checkmate</span> — White wins.</p>'); showOutcome('Checkmate', '<p><b>Checkmate</b> — White wins.</p>', ()=>{}); } });
+        const msg = res.success ? '<p><b>Black (AI) — Last Stand succeeds!</b> The checking piece is destroyed on <b>'+sqKey(t.r,t.c)+'</b>.</p>' : '<p><b>Black (AI) — Last Stand fails.</b> No effect.</p>';
+        log('Black (AI) attempts Old King\'s Last Stand → '+(res.success? 'SUCCESS':'FAIL')+'.');
+        showOutcome("Old King's Last Stand", msg, ()=>{ if(res.success){ endTurn(BLACK);} else { gameOver=true; log('<span class="checkflag">Checkmate</span> — White wins.'); showOutcome('Checkmate', '<p><b>Checkmate</b> — White wins.</p>', ()=>{}); } });
         return;
       } else {
-        gameOver=true; log('<span class="checkflag">Checkmate</span> — White wins.</p>'); showOutcome('Checkmate', '<p><b>Checkmate</b> — White wins.</p>', ()=>{}); return;
+        gameOver=true; log('<span class="checkflag">Checkmate</span> — White wins.'); showOutcome('Checkmate', '<p><b>Checkmate</b> — White wins.</p>', ()=>{}); return;
       }
     }
 
@@ -556,30 +490,21 @@
       if(!m.capture) continue;
       const atk=board[m.from.r][m.from.c];
       const def=board[m.to.r][m.to.c];
-      if(!def || def.color!==WHITE) continue;
-      if(def.type==='K') continue;
-      if(inChk && (!m.forced || m.forced!=='base')) continue;
-      const b=baseDmg(atk), s=2*b;
-      let score=pieceValue(def.type);
-      if(b>=def.hp) score+=100; else if(s>=def.hp) score+=80; else score+=40;
+      if(!def || def.color!==WHITE) continue; if(def.type==='K') continue; if(inChk && (!m.forced || m.forced!=='base')) continue;
+      const b=baseDmg(atk), s=2*b; let score=pieceValue(def.type); if(b>=def.hp) score+=100; else if(s>=def.hp) score+=80; else score+=40;
       if(score>bestScore){ bestScore=score; bestCap={ m, atk, def, choose: (b>=def.hp? 'base' : (s>=def.hp? 'super' : (Math.random()<0.5?'base':'super'))) }; }
     }
     if(bestCap){
-      const mv=bestCap.m;
-      const attacker=board[mv.from.r][mv.from.c];
-      const defender=board[mv.to.r][mv.to.c];
-      if(inChk){
-        promptHumanDefendThenResolve({ attacker, defender, attackerPos:mv.from, defenderPos:mv.to, attackType:'base', defendLocked:true }, (res)=>{ endTurn(BLACK); });
-      } else {
-        promptHumanDefendThenResolve({ attacker, defender, attackerPos:mv.from, defenderPos:mv.to, attackType:bestCap.choose }, (res)=>{ endTurn(BLACK); });
-      }
+      const mv=bestCap.m; const attacker=board[mv.from.r][mv.from.c]; const defender=board[mv.to.r][mv.to.c];
+      if(inChk){ promptHumanDefendThenResolve({ attacker, defender, attackerPos:mv.from, defenderPos:mv.to, attackType:'base', defendLocked:true }, (res)=>{ endTurn(BLACK); }); }
+      else { promptHumanDefendThenResolve({ attacker, defender, attackerPos:mv.from, defenderPos:mv.to, attackType:bestCap.choose }, (res)=>{ endTurn(BLACK); }); }
       return;
     }
 
     for(const m of allMoves){ if(!m.capture){ m.score = 10 + (3.5 - distToCenter(m.to.c, m.to.r)); } }
     const choice = allMoves.sort((a,b)=> (b.score||0)-(a.score||0))[0];
     movePiece(choice.from, choice.to);
-    log(`<b>AI</b> moves ${board[choice.to.r][choice.to.c].type} to <b>${sqKey(choice.to.r,choice.to.c)}</b>.`);
+    log('<b>AI</b> moves '+board[choice.to.r][choice.to.c].type+' to <b>'+sqKey(choice.to.r,choice.to.c)+'</b>.');
     endTurn(BLACK);
   }
 
@@ -587,55 +512,47 @@
   function distToCenter(c,r){ const cx=Math.abs(c-3.5), rx=Math.abs(r-3.5); return Math.hypot(cx,rx); }
   function pieceValue(t){ return ({P:1,N:3,B:3,R:5,Q:9,K:100})[t]||0; }
 
-  // ===== UI Controls / Info =====
   document.getElementById('btnReset').addEventListener('click', setupInitial);
-  document.getElementById('btnAccel').addEventListener('click', ()=>{ accelerated=!accelerated; setPhasePill(); render(); log(`Phase toggled: ${accelerated ? '<b>Accelerated Damage</b> (+1 dmg)' : '<b>Opening</b> (normal dmg)'}.`); });
+  document.getElementById('btnAccel').addEventListener('click', ()=>{ accelerated=!accelerated; setPhasePill(); render(); log('Phase toggled: '+(accelerated ? '<b>Accelerated Damage</b> (+1 dmg)' : '<b>Opening</b> (normal dmg)')+'.'); });
   document.getElementById('btnInfo').addEventListener('click', showInfo);
   document.getElementById('btnTests').addEventListener('click', runTests);
   function setPhasePill(){ document.getElementById('accelState').textContent=accelerated? 'ON':'OFF'; document.getElementById('phasePill').textContent=accelerated? 'Accelerated Damage (+1)':'Opening'; }
 
-  function showInfo(){ const infoHTML=`<div class="content info">
-      <p><b>tChess</b> — capture attempts trigger combat before movement. If the target survives, no one moves (the capture <i>bounces</i>).</p>
-      <p><b>Check is enforced</b>: Kings cannot be captured; you may not use RNG to escape check. If in check, only (i) king moves, (ii) interpose, or (iii) capturing the checking piece with a <i>lethal base attack</i> are allowed. Defender cannot Defend against a legal escape.</p>
-      <p><b>Old King's Last Stand</b> — once per game per side, if in check you may attempt a 5% smite against one checking piece anywhere on the board. On success, that piece is destroyed. Counts as your turn.</p>
-      <p><b>Attack Types</b>: Base (auto-hit) for base damage; Super (40% hit) for <i>2×</i> damage.</p>
-      <table><thead><tr><th>Piece</th><th>HP</th><th>Base Damage</th></tr></thead>
-        <tbody>
-          <tr><td>Pawn</td><td>2</td><td>1</td></tr>
-          <tr><td>Knight</td><td>4</td><td>2</td></tr>
-          <tr><td>Bishop</td><td>4</td><td>2</td></tr>
-          <tr><td>Rook</td><td>6</td><td>3</td></tr>
-          <tr><td>Queen</td><td>8</td><td>4</td></tr>
-          <tr><td>King</td><td>— (cannot be damaged)</td><td>—</td></tr>
-        </tbody>
-      </table>
-      <p><b>Defends</b>: Each side gets 3 per game. Successful Defend cancels all damage.</p>
-      <p><b>Phases</b>: After 20 minutes, switch to <i>Accelerated Damage</i> (+1 to all base damages). This prototype lets you toggle it.</p>
-      <p><b>Notes</b>: Non-modal command bar for decisions; results appear directly on the contested square. Duel overlay shows both pieces side-by-side during combat.</p>
-    </div>`; openDialog('How to Play', infoHTML); }
+  function showInfo(){ const infoHTML='<div class="content info">'+
+      '<p><b>tChess</b> — capture attempts trigger combat before movement. If the target survives, no one moves (the capture <i>bounces</i>).</p>'+
+      '<p><b>Check is enforced</b>: Kings cannot be captured; you may not use RNG to escape check. If in check, only (i) king moves, (ii) interpose, or (iii) capturing the checking piece with a <i>lethal base attack</i> are allowed. Defender cannot Defend against a legal escape.</p>'+
+      '<p><b>Old King\'s Last Stand</b> — once per game per side, if in check you may attempt a 5% smite against one checking piece anywhere on the board. On success, that piece is destroyed. Counts as your turn.</p>'+
+      '<p><b>Attack Types</b>: Base (auto-hit) for base damage; Super (40% hit) for <i>2×</i> damage.</p>'+
+      '<table><thead><tr><th>Piece</th><th>HP</th><th>Base Damage</th></tr></thead>'+
+        '<tbody>'+
+          '<tr><td>Pawn</td><td>2</td><td>1</td></tr>'+
+          '<tr><td>Knight</td><td>4</td><td>2</td></tr>'+
+          '<tr><td>Bishop</td><td>4</td><td>2</td></tr>'+
+          '<tr><td>Rook</td><td>6</td><td>3</td></tr>'+
+          '<tr><td>Queen</td><td>8</td><td>4</td></tr>'+
+          '<tr><td>King</td><td>— (cannot be damaged)</td><td>—</td></tr>'+
+        '</tbody>'+
+      '</table>'+
+      '<p><b>Defends</b>: Each side gets 3 per game. Successful Defend cancels all damage.</p>'+
+      '<p><b>Phases</b>: After 20 minutes, switch to <i>Accelerated Damage</i> (+1 to all base damages). This prototype lets you toggle it.</p>'+
+      '<p><b>Notes</b>: Non-modal command bar for decisions; results appear directly on the contested square. Duel overlay shows both pieces side-by-side during combat.</p>'+
+    '</div>'; openDialog('How to Play', infoHTML); }
 
-  // ===== Tests (smoke) =====
   function runTests(){
     const saved={ b:clone(board), t:turn, s:clone(selected), lm:clone(legalMoves), d:clone(defends), a:accelerated, g:gameOver, ls:clone(lastStand) };
     const restore=()=>{ board=saved.b; turn=saved.t; selected=saved.s; legalMoves=saved.lm; defends=saved.d; accelerated=saved.a; gameOver=saved.g; lastStand=saved.ls; duelState=null; render(); };
     const results=[]; const assert=(name, cond)=>{ results.push({name, pass:!!cond}); if(!cond) console.error('FAIL:', name); };
     const placeOnly=(list)=>{ board=Array.from({length:8},()=>Array(8).fill(null)); for(const it of list){ const [sq,color,type,hp]=it; const file=sq.charCodeAt(0)-97; const rank=parseInt(sq[1]); const r=8-rank; const c=file; board[r][c]={color,type,hp:(hp??BASE_STATS[type].hp),hasMoved:true}; } };
 
-    // T1: Start not mate
     setupInitial(); assert('T1a start not mate (White)', !isCheckmate(WHITE)); assert('T1b start not mate (Black)', !isCheckmate(BLACK));
-
-    // T2: King cannot capture
     placeOnly([["e1",WHITE,'K'],["e2",BLACK,'P',2]]); turn=WHITE; const ms=genLegalMoves(7,4); assert('T2 King has no captures', !ms.some(m=>m.capture));
-
-    // T3: Super miss does 0
     const rnd=Math.random; Math.random=()=>0.9; placeOnly([["d4",WHITE,'P',2],["e5",BLACK,'P',2]]); const res3=resolveCombat({r:4,c:3},{r:3,c:4},'super',{used:false,block:false}); assert('T3 super miss keeps HP', board[3][4] && board[3][4].hp===2 && res3.lethal===false); Math.random=rnd;
 
-    log(`<b>Smoke Tests:</b> ${results.filter(r=>r.pass).length}/${results.length} passing`);
-    results.forEach(r=> log(`${r.pass? '✅':'❌'} ${r.name}`));
+    log('<b>Smoke Tests:</b> '+results.filter(r=>r.pass).length+'/'+results.length+' passing');
+    results.forEach(r=> log((r.pass? '✅':'❌')+' '+r.name));
     restore();
   }
 
-  // ===== Init =====
   document.getElementById('btnReset').addEventListener('click', setupInitial);
   setupInitial();
   </script>
