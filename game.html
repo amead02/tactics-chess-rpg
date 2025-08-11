@@ -93,6 +93,8 @@
     .fx-shake{ animation:shake .4s ease-out; }
     @keyframes shake{ 10%,90%{ transform:translateX(-2px);} 20%,80%{ transform:translateX(4px);} 30%,50%,70%{ transform:translateX(-6px);} 40%,60%{ transform:translateX(6px);} }
 
+    @media(max-width:980px){ .board-wrap{ max-width:94vw } }
+
     /* Result banner over the contested square */
     .fx-banner{ z-index:2 }
     .fx-banner span{ padding:6px 10px; border-radius:10px; font-weight:900; letter-spacing:.3px; border:1px solid #303a54; box-shadow:0 10px 24px rgba(0,0,0,.35)}
@@ -159,6 +161,16 @@
   const elDlgClose=document.getElementById('dlgClose');
   const elCmd=document.getElementById('cmdBar');
 
+  // === Robust square sizing for iOS/Android ===
+  function sizeBoard(){
+    const w = Math.max(elBoard.clientWidth || elBoard.getBoundingClientRect().width, 240);
+    elBoard.style.height = w + 'px';
+  }
+  const _ro = new ResizeObserver(sizeBoard);
+  _ro.observe(elBoard);
+  window.addEventListener('resize', sizeBoard, {passive:true});
+  window.addEventListener('orientationchange', ()=> setTimeout(sizeBoard,60), {passive:true});
+
   // Keep board square & stable on mobile
   function sizeBoard(){
     const w = elBoard.getBoundingClientRect().width;
@@ -187,7 +199,7 @@
     place(7,3,WHITE,'Q'); place(0,3,BLACK,'Q');
     place(7,4,WHITE,'K'); place(0,4,BLACK,'K');
     turn=WHITE; selected=null; legalMoves=[]; defends[WHITE]=3; defends[BLACK]=3; accelerated=false; gameOver=false; duelState=null; lastStand={[WHITE]:1,[BLACK]:1}; closeCmd();
-    render(); setPhasePill(); updateCheckPill(); updateLastStandButton(); sizeBoard();
+    render(); setPhasePill(); updateCheckPill(); updateLastStandButton(); sizeBoard(); sizeBoard(); sizeBoard();
     log('<b>New game</b>: White to move.');
   }
 
@@ -222,7 +234,7 @@
     document.getElementById('turnPill').textContent=(turn===WHITE? 'White':'Black (AI)');
     document.getElementById('defWhite').textContent=defends[WHITE];
     document.getElementById('defBlack').textContent=defends[BLACK];
-    updateCheckPill(); updateLastStandButton(); sizeBoard();
+    updateCheckPill(); updateLastStandButton(); sizeBoard(); sizeBoard();
   }
 
   // Visual helpers
