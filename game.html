@@ -135,7 +135,7 @@
   <script>
   console.log('tChess build 2.8.2-left loaded');
   const WHITE='w', BLACK='b';
-  const BASE_STATS = { P:{hp:2,dmg:1}, N:{hp:4,dmg:2}, B:{hp:4,dmg:2}, R:{hp:6,dmg:3}, Q:{hp:8,dmg:3}, K:{hp:0,dmg:0} };
+  const BASE_STATS = { P:{hp:2,dmg:1}, N:{hp:4,dmg:2}, B:{hp:4,dmg:2}, R:{hp:6,dmg:3}, Q:{hp:8,dmg:4}, K:{hp:0,dmg:0} };
 
   let board=[], turn=WHITE, selected=null, legalMoves=[], defends={[WHITE]:3,[BLACK]:3}, accelerated=false, gameOver=false, uiLock=false;
   let duelState=null; let lastStand={ [WHITE]:1, [BLACK]:1 };
@@ -222,18 +222,7 @@
         if(mv.capture){
           const defender=board[r][c];
           if(!defender){ clearSelection(); render(); return; }
-          if(attacker.type==='K'){
-            if(defender.type==='K'){ log('You cannot attack the King.'); clearSelection(); return; }
-            // KING STRIKE: deterministic adjacent kill
-            const dest={r,c};
-            try{ fxPoof(dest); }catch(e){}
-            board[dest.r][dest.c]=null;
-            movePiece(selected, dest);
-            try{ banner(dest,'Captured','banner-captured'); }catch(e){}
-            clearSelection();
-            endTurn(attacker.color);
-            return;
-          }
+          if(attacker.type==='K'){ log('King cannot attack.'); clearSelection(); return; }
           if(defender.type==='K'){ log('You cannot attack the King.'); clearSelection(); return; }
           const escape = mv.forced==='base';
           const defendLock = mv.defendLocked===true;
@@ -268,7 +257,7 @@
     if(p.type==='B') moves.push(...rayMoves(r,c,[[-1,-1],[-1,1],[1,-1],[1,1]]));
     if(p.type==='R') moves.push(...rayMoves(r,c,[[-1,0],[1,0],[0,-1],[0,1]]));
     if(p.type==='Q') moves.push(...rayMoves(r,c,[[-1,-1],[-1,1],[1,-1],[1,1],[-1,0],[1,0],[0,-1],[0,1]]));
-    if(p.type==='K') for(const dr of [-1,0,1]) for(const dc of [-1,0,1]) if(dr||dc){ const nr=r+dr, nc=c+dc; if(!inBounds(nr,nc)) continue; const target=board[nr][nc]; if(!target){ moves.push({r:nr,c:nc,capture:false}); } else if(isEnemy(target, p.color)) { moves.push({r:nr,c:nc,capture:true, kstrike:true}); } }
+    if(p.type==='K') for(const dr of [-1,0,1]) for(const dc of [-1,0,1]) if(dr||dc){ const nr=r+dr, nc=c+dc; if(!inBounds(nr,nc)) continue; const target=board[nr][nc]; if(!target){ moves.push({r:nr,c:nc,capture:false}); } }
 
     return moves.filter(m => moveKeepsKingSafe({from:{r,c}, to:{r:m.r,c:m.c}}));
   }
@@ -312,7 +301,7 @@
     }).map(m=>{ const p=board[m.from.r][m.from.c]; const meta={...m}; if(p.type!=='K' && m.capture && m.to.r===atk.r && m.to.c===atk.c){ meta.forced='base'; meta.defendLocked=true; } return meta; });
   }
 
-  function canUseLastStand(color){ return lastStand[color]>0 && inCheck(color) && lastStandTargets(color).length>0; }
+  function canUseLastStand(color){ return lastStand[color]>0 && inCheck(color) && attackerSquares(board, color).length>0; }
   function isCheckmate(color){ if(!inCheck(color)) return false; if(strictLegalRPGMoves(color).length>0) return false; if(canUseLastStand(color)) return false; return true; }
 
   function movePiece(from, to){
@@ -324,32 +313,7 @@
   }
 
   function resolveCombat(attackerPos, defenderPos, attackType, defendChoice, opts={}){
-    const atk=board[attackerPos.r][attackerPos.c]; const def=board[defenderPos.r][defenderPos.c];
-    if(!atk||!def) return {moved:false, lethal:false, text:'', inflicted:0, defHPBefore:0, defHPAfter:0};
-    // Deterministic King strike: allow the King to attack any adjacent enemy piece (but not the opposing King)
-    if(atk.type==='K'){
-      if(def.type==='K'){
-        log('You cannot attack the King.');
-        return {moved:false, lethal:false, text:'You cannot attack the King.', inflicted:0, defHPBefore:def.hp, defHPAfter:def.hp};
-      }
-      const defHPBefore = def.hp;
-      const inflicted = def.hp;
-      const defHPAfter = 0;
-      try { fxPoof(defenderPos); } catch(e){}
-      board[defenderPos.r][defenderPos.c] = null;
-      movePiece(attackerPos, {r:defenderPos.r, c:defenderPos.c});
-      duelState=null;
-      return {
-        moved:true,
-        lethal:true,
-        text:'King strikes and captures on <b>'+sqKey(defenderPos.r, defenderPos.c)+'</b>.',
-        inflicted,
-        defHPBefore,
-        defHPAfter,
-        defendUsed:false,
-        defendBlocked:false
-      };
-    }
+    const atk=board[attackerPos.r][attackerPos.c]; const def=board[defenderPos.r][defenderPos.c]; if(!atk||!def) return {moved:false, lethal:false, text:'', inflicted:0, defHPBefore:0, defHPAfter:0}; if(atk.type==='K'){ log('Illegal: King cannot attack.'); return {moved:false, lethal:false, text:'King cannot attack.', inflicted:0, defHPBefore:def.hp, defHPAfter:def.hp}; }
     const dmg=baseDmg(atk); let inflicted=0; let text=''; const defHPBefore=def.hp;
     const defendUsed = defendChoice.used && !opts.defendLocked; const defendBlocked = defendUsed && defendChoice.block===true;
     let superRoll=null, hit=false;
@@ -467,13 +431,7 @@
   }
 
   function updateLastStandButton(){ const btn=document.getElementById('btnLastStand'); const enable=(turn===WHITE && canUseLastStand(WHITE) && !uiLock && !gameOver); btn.disabled=!enable; }
-  function lastStandTargets(color){
-    const all = attackerSquares(board, color);
-    const k = findKing(board, color);
-    if(!k) return [];
-    const filtered = all.filter(pos => Math.max(Math.abs(pos.r - k.r), Math.abs(pos.c - k.c)) > 1);
-    return filtered.map(pos => ({...pos, piece:board[pos.r][pos.c]}));
-  }
+  function lastStandTargets(color){ return attackerSquares(board, color).map(pos=> ({...pos, piece:board[pos.r][pos.c]})); }
   function attemptLastStand(color, target, roll=Math.random){ if(!canUseLastStand(color)) return {ok:false, reason:'unavailable'}; lastStand[color]--; const success = roll() < 0.05; if(success){ const victim=board[target.r][target.c]; board[target.r][target.c]=null; render(); return {ok:true, success:true, victim}; } render(); return {ok:true, success:false}; }
   function showLastStandChoices(color, done){
     const targets=lastStandTargets(color); if(targets.length===0){ log('No eligible target for Last Stand.'); return; }
@@ -521,17 +479,7 @@
       if(forced){
         const attacker=board[forced.from.r][forced.from.c];
         const defender=board[forced.to.r][forced.to.c];
-        if(attacker && attacker.type==='K'){
-        // KING STRIKE (forced escape): immediate capture with no RNG
-        const dest = {r:forced.to.r, c:forced.to.c};
-        try{ fxPoof(dest); }catch(e){}
-        board[dest.r][dest.c] = null;
-        movePiece(forced.from, dest);
-        log('<b>AI</b> King strikes and captures on <b>'+sqKey(dest.r,dest.c)+'</b>.');
-        endTurn(BLACK);
-      } else {
-        promptHumanDefendThenResolve({ attacker, defender, attackerPos:forced.from, defenderPos:forced.to, attackType:'base', defendLocked:true }, (res)=>{ if(inCheck(BLACK)){ log('<b>AI</b> escape attempt failed; retrying...'); setTimeout(aiTurn, 200);} else { endTurn(BLACK);} });
-      }
+        if(attacker && attacker.type==='K'){ /* kings cannot attack in tChess; skip this forced capture */ } else promptHumanDefendThenResolve({ attacker, defender, attackerPos:forced.from, defenderPos:forced.to, attackType:'base', defendLocked:true }, (res)=>{ if(inCheck(BLACK)){ log('<b>AI</b> escape attempt failed; retrying...'); setTimeout(aiTurn, 200);} else { endTurn(BLACK);} });
         return;
       }
     }
@@ -541,25 +489,15 @@
     for(const m of allMoves){
       if(!m.capture) continue;
       const atk=board[m.from.r][m.from.c];
-      const def=board[m.to.r][m.to.c];
-      if(!def || def.color!==WHITE) continue; if(def.type==='K') continue; if(inChk && (!m.forced || m.forced!=='base') && !(atk && atk.type==='K')) continue;
+      const def=board[m.to.r][m.to.c]; if(atk && atk.type==='K') continue;
+      if(!def || def.color!==WHITE) continue; if(def.type==='K') continue; if(inChk && (!m.forced || m.forced!=='base')) continue;
       const b=baseDmg(atk), s=2*b; let score=pieceValue(def.type); if(b>=def.hp) score+=100; else if(s>=def.hp) score+=80; else score+=40;
       if(score>bestScore){ bestScore=score; bestCap={ m, atk, def, choose: (b>=def.hp? 'base' : (s>=def.hp? 'super' : (Math.random()<0.5?'base':'super'))) }; }
     }
     if(bestCap){
       const mv=bestCap.m; const attacker=board[mv.from.r][mv.from.c]; const defender=board[mv.to.r][mv.to.c];
-      if(attacker && attacker.type==='K'){
-        const dest = {r:mv.to.r, c:mv.to.c};
-        try{ fxPoof(dest); }catch(e){}
-        board[dest.r][dest.c] = null;
-        movePiece(mv.from, dest);
-        log('<b>AI</b> King strikes and captures on <b>'+sqKey(dest.r,dest.c)+'</b>.');
-        endTurn(BLACK);
-      } else if(inChk){
-        promptHumanDefendThenResolve({ attacker, defender, attackerPos:mv.from, defenderPos:mv.to, attackType:'base', defendLocked:true }, (res)=>{ if(inCheck(BLACK)){ log('<b>AI</b> escape attempt failed; retrying...'); setTimeout(aiTurn, 200);} else { endTurn(BLACK);} });
-      } else {
-        promptHumanDefendThenResolve({ attacker, defender, attackerPos:mv.from, defenderPos:mv.to, attackType:bestCap.choose }, (res)=>{ if(inCheck(BLACK)){ log('<b>AI</b> move left king in check; retrying...'); setTimeout(aiTurn, 200);} else { endTurn(BLACK);} });
-      }
+      if(inChk){ promptHumanDefendThenResolve({ attacker, defender, attackerPos:mv.from, defenderPos:mv.to, attackType:'base', defendLocked:true }, (res)=>{ if(inCheck(BLACK)){ log('<b>AI</b> escape attempt failed; retrying...'); setTimeout(aiTurn, 200);} else { endTurn(BLACK);} }); }
+      else { promptHumanDefendThenResolve({ attacker, defender, attackerPos:mv.from, defenderPos:mv.to, attackType:bestCap.choose }, (res)=>{ if(inCheck(BLACK)){ log('<b>AI</b> move left king in check; retrying...'); setTimeout(aiTurn, 200);} else { endTurn(BLACK);} }); }
       return;
     }
 
@@ -583,16 +521,16 @@
   function showInfo(){ const infoHTML='<div class="content info">'+
       '<p><b>tChess</b> — capture attempts trigger combat before movement. If the target survives, no one moves (the capture <i>bounces</i>).</p>'+
       '<p><b>Check is enforced</b>: Kings cannot be captured; you may not use RNG to escape check. If in check, only (i) king moves, (ii) interpose, or (iii) capturing the checking piece with a <i>lethal base attack</i> are allowed. Defender cannot Defend against a legal escape.</p>'+
-      '<p><b>Old King\'s Last Stand</b> — once per game per side, if in check you may attempt a 5% smite against one checking piece anywhere on the board <b>except adjacent checkers</b>. On success, that piece is destroyed. Counts as your turn.</p>'+
-      '<p><b>Attack Types</b>: Base (auto-hit) for base damage; Super (40% hit) for <i>2×</i> damage. The King instead has a special <i>strike</i> that instantly captures any adjacent enemy piece (deterministic with no RNG or Defend).</p>'+
+      '<p><b>Old King\'s Last Stand</b> — once per game per side, if in check you may attempt a 5% smite against one checking piece anywhere on the board. On success, that piece is destroyed. Counts as your turn.</p>'+
+      '<p><b>Attack Types</b>: Base (auto-hit) for base damage; Super (40% hit) for <i>2×</i> damage.</p>'+
       '<table><thead><tr><th>Piece</th><th>HP</th><th>Base Damage</th></tr></thead>'+
         '<tbody>'+
           '<tr><td>Pawn</td><td>2</td><td>1</td></tr>'+
           '<tr><td>Knight</td><td>4</td><td>2</td></tr>'+
           '<tr><td>Bishop</td><td>4</td><td>2</td></tr>'+
           '<tr><td>Rook</td><td>6</td><td>3</td></tr>'+
-          '<tr><td>Queen</td><td>8</td><td>3</td></tr>'+
-          '<tr><td>King</td><td>— (cannot be damaged)</td><td>Instant kill</td></tr>'+
+          '<tr><td>Queen</td><td>8</td><td>4</td></tr>'+
+          '<tr><td>King</td><td>— (cannot be damaged)</td><td>—</td></tr>'+
         '</tbody>'+
       '</table>'+
       '<p><b>Defends</b>: Each side gets 3 per game. Successful Defend cancels all damage.</p>'+
@@ -607,7 +545,7 @@
     const placeOnly=(list)=>{ board=Array.from({length:8},()=>Array(8).fill(null)); for(const it of list){ const [sq,color,type,hp]=it; const file=sq.charCodeAt(0)-97; const rank=parseInt(sq[1]); const r=8-rank; const c=file; board[r][c]={color,type,hp:(hp??BASE_STATS[type].hp),hasMoved:true}; } };
 
     setupInitial(); assert('T1a start not mate (White)', !isCheckmate(WHITE)); assert('T1b start not mate (Black)', !isCheckmate(BLACK));
-    placeOnly([["e1",WHITE,'K'],["e2",BLACK,'P',2]]); turn=WHITE; const ms=genLegalMoves(7,4); assert('T2 King has adjacent capture', ms.some(m=>m.capture));
+    placeOnly([["e1",WHITE,'K'],["e2",BLACK,'P',2]]); turn=WHITE; const ms=genLegalMoves(7,4); assert('T2 King has no captures', !ms.some(m=>m.capture));
     const rnd=Math.random; Math.random=()=>0.9; placeOnly([["d4",WHITE,'P',2],["e5",BLACK,'P',2]]); const res3=resolveCombat({r:4,c:3},{r:3,c:4},'super',{used:false,block:false}); assert('T3 super miss keeps HP', board[3][4] && board[3][4].hp===2 && res3.lethal===false); Math.random=rnd;
 
     log('<b>Smoke Tests:</b> '+results.filter(r=>r.pass).length+'/'+results.length+' passing');

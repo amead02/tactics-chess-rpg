@@ -132,24 +132,10 @@
     </div>
   </div>
 
-  <!-- Include three.js from a CDN. Using r160 since later releases removed UMD builds. -->
-  <!-- Note: If this script fails to load due to network issues, the game will log an error in the battle log. -->
-  <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
   <script>
   console.log('tChess build 2.8.2-left loaded');
-
-  // Capture any global JavaScript errors and append them to the battle log for debugging.
-  window.addEventListener('error', function(event) {
-    try {
-      const msg = event.message || 'Unknown error';
-      const line = event.lineno || 0;
-      log('<b>JS Error</b>: '+msg+' at line '+line);
-    } catch (e) {
-      /* ignore */
-    }
-  });
   const WHITE='w', BLACK='b';
-  const BASE_STATS = { P:{hp:2,dmg:1}, N:{hp:4,dmg:2}, B:{hp:4,dmg:2}, R:{hp:6,dmg:3}, Q:{hp:8,dmg:3}, K:{hp:0,dmg:0} };
+  const BASE_STATS = { P:{hp:2,dmg:1}, N:{hp:4,dmg:2}, B:{hp:4,dmg:2}, R:{hp:6,dmg:3}, Q:{hp:8,dmg:4}, K:{hp:0,dmg:0} };
 
   let board=[], turn=WHITE, selected=null, legalMoves=[], defends={[WHITE]:3,[BLACK]:3}, accelerated=false, gameOver=false, uiLock=false;
   let duelState=null; let lastStand={ [WHITE]:1, [BLACK]:1 };
@@ -163,325 +149,6 @@
   const elCmd=document.getElementById('cmdBar');
 
   const clone = (o)=> JSON.parse(JSON.stringify(o));
-
-  // === 3D audio and rendering setup ===
-  // Preload move and attack sounds. These short WAV files are generated at build time.
-  const moveSound = new Audio('move.wav');
-  moveSound.load();
-  const attackSound = new Audio('attack.wav');
-  attackSound.load();
-
-  // Three.js scene globals
-  let scene, camera, renderer, controls;
-  let boardGroup, pieceGroup, highlightGroup, envGroup, swirl;
-  const TILE_SIZE = 1;
-
-  // Base64-encoded textures for the environment. Embedding these assets directly
-  // avoids any CORS or file access issues. The original PNGs have been
-  // downscaled and converted to JPEG to reduce file size while retaining
-  // quality. Each key corresponds to one of the four provided images.  See
-  // img_base64.json for the original sources.
-  const ENV_TEX_DATA = {
-    '984d8bed-d9ef-454f-8fe8-ec796b5c30d8.png':
-      'data:image/jpeg;base64,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',
-    '5b3a89a0-e62c-4499-b803-307f7c7a732d.png':
-      'data:image/jpeg;base64,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',
-    '443234e3-1cf6-4d90-99fa-f42dac5dddb2.png':
-      'data:image/jpeg;base64,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',
-    '551663bf-8e95-4723-9608-fc3a4fffdd54.png':
-      'data:image/jpeg;base64,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'
-  };
-
-  // Initialize the 3D scene once after the DOM is ready. The board's parent
-  // element (#board) is reused as the mount point for the WebGL canvas.
-  function initThree() {
-    // Avoid double initialization
-    if (scene) return;
-    const boardDiv = document.getElementById('board');
-    // Create renderer
-    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setPixelRatio(window.devicePixelRatio || 1);
-    boardDiv.innerHTML = '';
-    boardDiv.appendChild(renderer.domElement);
-    // Create scene and camera
-    scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0a0b12);
-    const aspect = boardDiv.clientWidth / boardDiv.clientHeight;
-    camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 1000);
-    camera.position.set(6, 8, 9);
-    camera.lookAt(0, 0, 0);
-    // Custom camera orbit controls. We avoid external OrbitControls.js to keep the game self-contained.
-    let camTheta = 0.8; // horizontal angle (radians)
-    let camPhi   = 0.6; // vertical angle (radians)
-    let camRadius = 12;  // distance from the board center. Starting further
-                          // away allows the background vistas to be visible
-                          // around the board. Players can zoom as desired.
-    function updateCamera() {
-      // Convert spherical coordinates to Cartesian
-      const x = camRadius * Math.sin(camPhi) * Math.sin(camTheta);
-      const y = camRadius * Math.cos(camPhi);
-      const z = camRadius * Math.sin(camPhi) * Math.cos(camTheta);
-      camera.position.set(x, y, z);
-      camera.lookAt(0, 0, 0);
-    }
-    updateCamera();
-    // Pointer interaction for orbiting
-    let isDragging = false;
-    let lastX = 0, lastY = 0;
-    renderer.domElement.addEventListener('pointerdown', (event) => {
-      isDragging = true;
-      lastX = event.clientX;
-      lastY = event.clientY;
-    });
-    window.addEventListener('pointerup', () => { isDragging = false; });
-    window.addEventListener('pointermove', (event) => {
-      if (!isDragging) return;
-      const dx = event.clientX - lastX;
-      const dy = event.clientY - lastY;
-      camTheta -= dx * 0.005;
-      camPhi   -= dy * 0.005;
-      // Clamp vertical angle to avoid flipping the camera below the board
-      const minPhi = 0.2;
-      const maxPhi = Math.PI / 2.2;
-      if (camPhi < minPhi) camPhi = minPhi;
-      if (camPhi > maxPhi) camPhi = maxPhi;
-      lastX = event.clientX;
-      lastY = event.clientY;
-      updateCamera();
-    });
-    // Scroll to zoom in/out
-    renderer.domElement.addEventListener('wheel', (event) => {
-      event.preventDefault();
-      camRadius += event.deltaY * 0.01;
-      camRadius = Math.max(5, Math.min(25, camRadius));
-      updateCamera();
-    });
-    // Lights
-    const ambient = new THREE.AmbientLight(0x8888aa, 1.4);
-    scene.add(ambient);
-    const directional = new THREE.DirectionalLight(0xffffff, 1.0);
-    directional.position.set(5, 10, 7);
-    scene.add(directional);
-    // Groups
-    boardGroup = new THREE.Group();
-    pieceGroup = new THREE.Group();
-    highlightGroup = new THREE.Group();
-    envGroup = new THREE.Group();
-    scene.add(boardGroup);
-    scene.add(pieceGroup);
-    scene.add(highlightGroup);
-    scene.add(envGroup);
-    // Create board squares
-    for (let r = 0; r < 8; r++) {
-      for (let c = 0; c < 8; c++) {
-        const isLight = (r + c) % 2 === 0;
-        const geom = new THREE.BoxGeometry(TILE_SIZE, 0.1, TILE_SIZE);
-        const color = isLight ? 0x2e2a5c : 0x1a183a;
-        const material = new THREE.MeshPhongMaterial({ color });
-        const mesh = new THREE.Mesh(geom, material);
-        mesh.position.set((c - 3.5) * TILE_SIZE, -0.05, (r - 3.5) * TILE_SIZE);
-        mesh.userData = { r, c };
-        boardGroup.add(mesh);
-      }
-    }
-    // Create environment planes using provided images for a cyber‑fantasy vibe
-    // Load environment planes using embedded data URIs.  Each texture is
-    // fetched from ENV_TEX_DATA to avoid filesystem or CORS issues.  We
-    // still leverage TextureLoader so that Three.js correctly decodes the
-    // data URI into a GPU texture.
-    const texLoader = new THREE.TextureLoader();
-    const envTextures = [
-      // The cyber‑fantasy backgrounds are moved closer to the board so that
-      // players can glimpse them while playing. Each plane is positioned
-      // roughly 8–10 units away from the board centre and sized to wrap
-      // around the play area.  The Z‑facing planes use the farmland and
-      // futuristic city textures; the X‑facing planes use the crystal
-      // cathedral and tournament portal.
-      { key: '984d8bed-d9ef-454f-8fe8-ec796b5c30d8.png', pos: [0, 4.5, -10], rot: [0, 0, 0], size: [28, 14] },
-      { key: '5b3a89a0-e62c-4499-b803-307f7c7a732d.png', pos: [0, 4.5, 10], rot: [0, Math.PI, 0], size: [28, 14] },
-      { key: '443234e3-1cf6-4d90-99fa-f42dac5dddb2.png', pos: [-12, 4.5, 0], rot: [0, Math.PI / 2, 0], size: [28, 14] },
-      { key: '551663bf-8e95-4723-9608-fc3a4fffdd54.png', pos: [12, 4.5, 0], rot: [0, -Math.PI / 2, 0], size: [28, 14] }
-    ];
-    envTextures.forEach((t) => {
-      const uri = ENV_TEX_DATA[t.key] || t.key;
-      const tex = texLoader.load(uri);
-      tex.encoding = THREE.sRGBEncoding;
-      const geom = new THREE.PlaneGeometry(t.size[0], t.size[1]);
-      const mat = new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide });
-      const plane = new THREE.Mesh(geom, mat);
-      plane.position.set(...t.pos);
-      plane.rotation.set(...t.rot);
-      envGroup.add(plane);
-    });
-    // Overhead swirling galaxy uses the same crystal texture; loaded via data URI.
-    // Declare swirl in the outer scope so that it can be animated every frame.
-    const swirlUri = ENV_TEX_DATA['443234e3-1cf6-4d90-99fa-f42dac5dddb2.png'];
-    const swirlTex = texLoader.load(swirlUri);
-    swirlTex.encoding = THREE.sRGBEncoding;
-    const swirlGeom = new THREE.PlaneGeometry(20, 20);
-    const swirlMat = new THREE.MeshBasicMaterial({ map: swirlTex, side: THREE.DoubleSide, transparent: true, opacity: 0.8 });
-    swirl = new THREE.Mesh(swirlGeom, swirlMat);
-    swirl.position.set(0, 10, 0);
-    swirl.rotation.x = -Math.PI / 2;
-    envGroup.add(swirl);
-    // Resize handler
-    function onWindowResize3D() {
-      const rect = boardDiv.getBoundingClientRect();
-      const width = rect.width;
-      const height = rect.height;
-      renderer.setSize(width, height);
-      camera.aspect = width / height;
-      camera.updateProjectionMatrix();
-    }
-    window.addEventListener('resize', onWindowResize3D);
-    onWindowResize3D();
-    // Interaction: raycast picking for squares
-    const raycaster = new THREE.Raycaster();
-    const mouse = new THREE.Vector2();
-    renderer.domElement.addEventListener('pointerdown', (event) => {
-      if (gameOver || uiLock || elOverlay.classList.contains('show')) return;
-      const rect = renderer.domElement.getBoundingClientRect();
-      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-      raycaster.setFromCamera(mouse, camera);
-      const intersects = raycaster.intersectObjects(boardGroup.children, false);
-      if (intersects.length > 0) {
-        const mesh = intersects[0].object;
-        const { r, c } = mesh.userData;
-        handleClick(r, c);
-      }
-    });
-    // Set output encoding for correct color handling (sRGB textures)
-    renderer.outputEncoding = THREE.sRGBEncoding;
-    // Animation loop
-    function animate() {
-      requestAnimationFrame(animate);
-      swirl.rotation.z += 0.0005;
-      renderer.render(scene, camera);
-    }
-    animate();
-    // Once the scene is ready, synchronise the board state so pieces appear
-    if (typeof updateThreeBoard === 'function') updateThreeBoard();
-  }
-
-  // Create a 3D mesh for each chess piece type. Different shapes help
-  // distinguish pieces at a glance while maintaining a neon aesthetic.
-  function createPieceMesh(type, color) {
-    const group = new THREE.Group();
-    const baseColor = color === WHITE ? 0xffd76b : 0x67c9ff;
-    const material = new THREE.MeshPhongMaterial({ color: baseColor, emissive: baseColor, emissiveIntensity: 0.25, shininess: 80 });
-    const add = (geom, yOff = 0) => {
-      const mesh = new THREE.Mesh(geom, material);
-      mesh.position.y = yOff;
-      group.add(mesh);
-    };
-    switch (type) {
-      case 'P': {
-        add(new THREE.CylinderGeometry(0.25, 0.3, 0.35, 24), 0.175);
-        add(new THREE.SphereGeometry(0.2, 24, 16), 0.5);
-        break;
-      }
-      case 'N': {
-        add(new THREE.CylinderGeometry(0.3, 0.3, 0.35, 24), 0.175);
-        add(new THREE.BoxGeometry(0.35, 0.45, 0.2), 0.55);
-        add(new THREE.ConeGeometry(0.25, 0.45, 24), 0.95);
-        break;
-      }
-      case 'B': {
-        add(new THREE.CylinderGeometry(0.28, 0.32, 0.35, 24), 0.175);
-        add(new THREE.ConeGeometry(0.26, 0.8, 24), 0.8);
-        add(new THREE.SphereGeometry(0.18, 24, 16), 1.4);
-        break;
-      }
-      case 'R': {
-        add(new THREE.CylinderGeometry(0.32, 0.36, 0.35, 24), 0.175);
-        add(new THREE.CylinderGeometry(0.32, 0.32, 0.6, 24), 0.65);
-        const battGeom = new THREE.BoxGeometry(0.1, 0.2, 0.1);
-        const offsets = [
-          [0.22, 1.15, 0.22],
-          [-0.22, 1.15, 0.22],
-          [0.22, 1.15, -0.22],
-          [-0.22, 1.15, -0.22]
-        ];
-        offsets.forEach(([x, y, z]) => {
-          const batt = new THREE.Mesh(battGeom, material);
-          batt.position.set(x, y, z);
-          group.add(batt);
-        });
-        break;
-      }
-      case 'Q': {
-        add(new THREE.CylinderGeometry(0.32, 0.36, 0.35, 24), 0.175);
-        add(new THREE.CylinderGeometry(0.34, 0.34, 0.7, 24), 0.7);
-        add(new THREE.SphereGeometry(0.25, 24, 16), 1.4);
-        const spikeGeom = new THREE.ConeGeometry(0.1, 0.3, 16);
-        const spikeOffsets = [0, Math.PI * 0.5, Math.PI, Math.PI * 1.5];
-        spikeOffsets.forEach((angle) => {
-          const spike = new THREE.Mesh(spikeGeom, material);
-          spike.position.set(Math.cos(angle) * 0.3, 1.75, Math.sin(angle) * 0.3);
-          spike.rotation.y = angle;
-          group.add(spike);
-        });
-        break;
-      }
-      case 'K': {
-        add(new THREE.CylinderGeometry(0.32, 0.36, 0.35, 24), 0.175);
-        add(new THREE.CylinderGeometry(0.34, 0.34, 0.7, 24), 0.7);
-        add(new THREE.SphereGeometry(0.22, 24, 16), 1.35);
-        const vBar = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.4, 0.1), material);
-        vBar.position.set(0, 1.7, 0);
-        group.add(vBar);
-        const hBar = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.1, 0.1), material);
-        hBar.position.set(0, 1.7, 0);
-        group.add(hBar);
-        break;
-      }
-    }
-    return group;
-  }
-
-  // Update or rebuild all 3D pieces and highlights according to the current
-  // board state. This is called after any state change in the game.
-  function updateThreeBoard() {
-    if (!scene) return;
-    // Clear existing pieces and highlights
-    while (pieceGroup.children.length) pieceGroup.remove(pieceGroup.children[0]);
-    while (highlightGroup.children.length) highlightGroup.remove(highlightGroup.children[0]);
-    // Build pieces according to board
-    for (let r = 0; r < 8; r++) {
-      for (let c = 0; c < 8; c++) {
-        const p = board[r][c];
-        if (p) {
-          const mesh = createPieceMesh(p.type, p.color);
-          const yOffset = p.type === 'K' ? 0.3 : 0;
-          mesh.position.set((c - 3.5) * TILE_SIZE, 0.05 + yOffset, (r - 3.5) * TILE_SIZE);
-          if (p.hasMoved) {
-            mesh.scale.set(1.1, 1.1, 1.1);
-          }
-          pieceGroup.add(mesh);
-          if (selected && selected.r === r && selected.c === c) {
-            mesh.position.y += 0.2;
-            const ringGeom = new THREE.TorusGeometry(0.4, 0.02, 16, 32);
-            const ringMat = new THREE.MeshBasicMaterial({ color: 0xc8ff4a });
-            const ring = new THREE.Mesh(ringGeom, ringMat);
-            ring.rotation.x = Math.PI / 2;
-            ring.position.set((c - 3.5) * TILE_SIZE, 0.02, (r - 3.5) * TILE_SIZE);
-            highlightGroup.add(ring);
-          }
-        }
-      }
-    }
-    // Highlight legal moves
-    legalMoves.forEach((m) => {
-      const highlightColor = m.capture ? 0xff5a7a : 0xc8ff4a;
-      const planeGeom = new THREE.PlaneGeometry(TILE_SIZE * 0.9, TILE_SIZE * 0.9);
-      const planeMat = new THREE.MeshBasicMaterial({ color: highlightColor, opacity: 0.3, transparent: true });
-      const plane = new THREE.Mesh(planeGeom, planeMat);
-      plane.rotation.x = -Math.PI / 2;
-      plane.position.set((m.c - 3.5) * TILE_SIZE, 0.11, (m.r - 3.5) * TILE_SIZE);
-      highlightGroup.add(plane);
-    });
-  }
   const inBounds=(r,c)=> r>=0&&r<8&&c>=0&&c<8;
   const sqKey=(r,c)=> String.fromCharCode(97+c)+(8-r);
   const isEnemy=(p,color)=> p&&p.color!==color;
@@ -504,29 +171,34 @@
   }
 
   function render(){
-    // Update status indicators without regenerating an HTML grid. The 3D renderer will
-    // handle the board visuals separately. We still update turn and defend counts.
+    elBoard.innerHTML='';
+    for(let r=0;r<8;r++){
+      for(let c=0;c<8;c++){
+        const isLight=(r+c)%2===0; const sq=document.createElement('div');
+        sq.className=`sq ${isLight?'light':'dark'}`; sq.dataset.r=r; sq.dataset.c=c; sq.dataset.coord=sqKey(r,c);
+        const p=board[r][c];
+        if(p){ const pi=document.createElement('div'); pi.className='piece '+(p.color===WHITE?'white':'black'); pi.innerHTML=`<span>${pieceGlyph(p)}</span>`; const hp=document.createElement('div'); hp.className='hp'; hp.textContent=p.type==='K'? '—' : p.hp; pi.appendChild(hp);
+          if(duelState && duelState.defenderPos && duelState.defenderPos.r===r && duelState.defenderPos.c===c){ pi.classList.add('duel-defender'); }
+          if(p.hasMoved) pi.classList.add('moved'); sq.appendChild(pi); }
+        if(selected && selected.r===r && selected.c===c) sq.classList.add('selected');
+        const lm=legalMoves.find(m=>m.r===r && m.c===c); if(lm){ sq.classList.add(lm.capture? 'capture':'move'); }
+        if(duelState && duelState.defenderPos && duelState.defenderPos.r===r && duelState.defenderPos.c===c){ const ghost=document.createElement('div'); ghost.className='piece duel-ghost '+(duelState.attackerSnap.color===WHITE?'white':'black'); ghost.innerHTML=`<span>${pieceGlyph(duelState.attackerSnap)}</span>`; const hp=document.createElement('div'); hp.className='hp'; hp.textContent=duelState.attackerSnap.type==='K'? '—' : duelState.attackerSnap.hp; ghost.appendChild(hp); sq.appendChild(ghost); }
+        sq.addEventListener('click', onSquareClick);
+        elBoard.appendChild(sq);
+      }
+    }
     document.getElementById('turnPill').textContent=(turn===WHITE? 'White':'Black (AI)');
     document.getElementById('defWhite').textContent=defends[WHITE];
     document.getElementById('defBlack').textContent=defends[BLACK];
-    updateCheckPill();
-    updateLastStandButton();
-    // Synchronize the 3D scene with the current game state
-    if (typeof updateThreeBoard === 'function') updateThreeBoard();
+    updateCheckPill(); updateLastStandButton();
   }
 
-  // In the 3D version of the game there is no underlying HTML board,
-  // so utility functions that previously relied on DOM elements are stubbed out.
-  function sqEl(pos){ return null; }
-  function addFx(pos, cls, ms=600){ /* no visual FX in 3D environment */ }
-  const fxPoof = (pos)=> { /* no visual FX in 3D environment */ };
-  const fxPulse = (pos)=> { /* no visual FX in 3D environment */ };
-  const fxShake = (pos)=> { /* no visual FX in 3D environment */ };
-  function banner(pos, text, cls){
-    // Instead of rendering a banner on a DOM square, log the outcome so that
-    // the result is still communicated to the player.
-    log(text);
-  }
+  function sqEl(pos){ return elBoard.querySelector('.sq[data-r="'+pos.r+'"][data-c="'+pos.c+'"]'); }
+  function addFx(pos, cls, ms=600){ const sq=sqEl(pos); if(!sq) return; const fx=document.createElement('div'); fx.className='fx '+cls; sq.appendChild(fx); setTimeout(()=>{ try{ fx.remove(); }catch(e){} }, ms); }
+  const fxPoof = (pos)=> addFx(pos,'fx-poof',550);
+  const fxPulse = (pos)=> addFx(pos,'fx-pulse',600);
+  const fxShake = (pos)=> addFx(pos,'fx-shake',420);
+  function banner(pos, text, cls){ const sq=sqEl(pos); if(!sq) return; const b=document.createElement('div'); b.className='fx fx-banner '+cls; b.innerHTML='<span>'+text+'</span>'; sq.appendChild(b); setTimeout(()=>{ try{ b.remove(); }catch(e){} }, 900); }
 
   function pieceGlyph(p){ const mapW={K:'♔',Q:'♕',R:'♖',B:'♗',N:'♘',P:'♙'}; const mapB={K:'♚',Q:'♛',R:'♜',B:'♝',N:'♞',P:'♟︎'}; return p.color===WHITE? mapW[p.type]: mapB[p.type]; }
 
@@ -550,18 +222,7 @@
         if(mv.capture){
           const defender=board[r][c];
           if(!defender){ clearSelection(); render(); return; }
-          if(attacker.type==='K'){
-            if(defender.type==='K'){ log('You cannot attack the King.'); clearSelection(); return; }
-            // KING STRIKE: deterministic adjacent kill
-            const dest={r,c};
-            try{ fxPoof(dest); }catch(e){}
-            board[dest.r][dest.c]=null;
-            movePiece(selected, dest);
-            try{ banner(dest,'Captured','banner-captured'); }catch(e){}
-            clearSelection();
-            endTurn(attacker.color);
-            return;
-          }
+          if(attacker.type==='K'){ log('King cannot attack.'); clearSelection(); return; }
           if(defender.type==='K'){ log('You cannot attack the King.'); clearSelection(); return; }
           const escape = mv.forced==='base';
           const defendLock = mv.defendLocked===true;
@@ -596,7 +257,7 @@
     if(p.type==='B') moves.push(...rayMoves(r,c,[[-1,-1],[-1,1],[1,-1],[1,1]]));
     if(p.type==='R') moves.push(...rayMoves(r,c,[[-1,0],[1,0],[0,-1],[0,1]]));
     if(p.type==='Q') moves.push(...rayMoves(r,c,[[-1,-1],[-1,1],[1,-1],[1,1],[-1,0],[1,0],[0,-1],[0,1]]));
-    if(p.type==='K') for(const dr of [-1,0,1]) for(const dc of [-1,0,1]) if(dr||dc){ const nr=r+dr, nc=c+dc; if(!inBounds(nr,nc)) continue; const target=board[nr][nc]; if(!target){ moves.push({r:nr,c:nc,capture:false}); } else if(isEnemy(target, p.color)) { moves.push({r:nr,c:nc,capture:true, kstrike:true}); } }
+    if(p.type==='K') for(const dr of [-1,0,1]) for(const dc of [-1,0,1]) if(dr||dc){ const nr=r+dr, nc=c+dc; if(!inBounds(nr,nc)) continue; const target=board[nr][nc]; if(!target){ moves.push({r:nr,c:nc,capture:false}); } }
 
     return moves.filter(m => moveKeepsKingSafe({from:{r,c}, to:{r:m.r,c:m.c}}));
   }
@@ -640,57 +301,19 @@
     }).map(m=>{ const p=board[m.from.r][m.from.c]; const meta={...m}; if(p.type!=='K' && m.capture && m.to.r===atk.r && m.to.c===atk.c){ meta.forced='base'; meta.defendLocked=true; } return meta; });
   }
 
-  function canUseLastStand(color){ return lastStand[color]>0 && inCheck(color) && lastStandTargets(color).length>0; }
+  function canUseLastStand(color){ return lastStand[color]>0 && inCheck(color) && attackerSquares(board, color).length>0; }
   function isCheckmate(color){ if(!inCheck(color)) return false; if(strictLegalRPGMoves(color).length>0) return false; if(canUseLastStand(color)) return false; return true; }
 
   function movePiece(from, to){
     for(let r=0;r<8;r++) for(let c=0;c<8;c++){ const _p=board[r][c]; if(_p) _p.hasMoved=false; }
     const p=board[from.r][from.c];
     board[to.r][to.c]=p; board[from.r][from.c]=null; p.hasMoved=true;
-    // Play move sound for any successful movement (non-combat)
-    if (typeof moveSound !== 'undefined' && moveSound) {
-      try { moveSound.currentTime = 0; moveSound.play(); } catch (e) {}
-    }
     if(p.type==='P'){ if((p.color===WHITE && to.r===0) || (p.color===BLACK && to.r===7)){ p.type='Q'; p.hp=BASE_STATS['Q'].hp; log(`${p.color===WHITE?'White':'Black'} pawn promoted to Queen at <b>${sqKey(to.r,to.c)}</b>.`); } }
     render();
   }
 
   function resolveCombat(attackerPos, defenderPos, attackType, defendChoice, opts={}){
-    const atk=board[attackerPos.r][attackerPos.c]; const def=board[defenderPos.r][defenderPos.c];
-    if (!atk || !def) return {moved:false, lethal:false, text:'', inflicted:0, defHPBefore:0, defHPAfter:0};
-    // If the attacker is a King, perform a deterministic strike against any adjacent enemy.
-    // The King cannot attack the opposing King, but may instantly capture any other adjacent piece.
-    if (atk.type==='K'){
-      // Prohibit king-on-king attacks per classic chess rules
-      if(def.type==='K'){
-        log('You cannot attack the King.');
-        return {moved:false, lethal:false, text:'You cannot attack the King.', inflicted:0, defHPBefore:def.hp, defHPAfter:def.hp, defendUsed:false, defendBlocked:false};
-      }
-      // Deterministic strike: always lethal, no Defend possible. Move king onto the defender square.
-      const defHPBefore = def.hp;
-      const inflicted = def.hp;
-      const defHPAfter = 0;
-      try { fxPoof(defenderPos); } catch (e) {}
-      // Remove the defender piece
-      board[defenderPos.r][defenderPos.c] = null;
-      // Move the king to the defender's square
-      movePiece(attackerPos, {r:defenderPos.r, c:defenderPos.c});
-      duelState = null;
-      return {
-        moved:true,
-        lethal:true,
-        text:'King strikes and captures on <b>'+sqKey(defenderPos.r, defenderPos.c)+'</b>.',
-        inflicted,
-        defHPBefore,
-        defHPAfter,
-        defendUsed:false,
-        defendBlocked:false
-      };
-    }
-    // Trigger attack sound whenever combat is initiated
-    if (typeof attackSound !== 'undefined' && attackSound) {
-      try { attackSound.currentTime = 0; attackSound.play(); } catch (e) {}
-    }
+    const atk=board[attackerPos.r][attackerPos.c]; const def=board[defenderPos.r][defenderPos.c]; if(!atk||!def) return {moved:false, lethal:false, text:'', inflicted:0, defHPBefore:0, defHPAfter:0}; if(atk.type==='K'){ log('Illegal: King cannot attack.'); return {moved:false, lethal:false, text:'King cannot attack.', inflicted:0, defHPBefore:def.hp, defHPAfter:def.hp}; }
     const dmg=baseDmg(atk); let inflicted=0; let text=''; const defHPBefore=def.hp;
     const defendUsed = defendChoice.used && !opts.defendLocked; const defendBlocked = defendUsed && defendChoice.block===true;
     let superRoll=null, hit=false;
@@ -808,13 +431,7 @@
   }
 
   function updateLastStandButton(){ const btn=document.getElementById('btnLastStand'); const enable=(turn===WHITE && canUseLastStand(WHITE) && !uiLock && !gameOver); btn.disabled=!enable; }
-  function lastStandTargets(color){
-    const all = attackerSquares(board, color);
-    const k = findKing(board, color);
-    if(!k) return [];
-    const filtered = all.filter(pos => Math.max(Math.abs(pos.r - k.r), Math.abs(pos.c - k.c)) > 1);
-    return filtered.map(pos => ({...pos, piece:board[pos.r][pos.c]}));
-  }
+  function lastStandTargets(color){ return attackerSquares(board, color).map(pos=> ({...pos, piece:board[pos.r][pos.c]})); }
   function attemptLastStand(color, target, roll=Math.random){ if(!canUseLastStand(color)) return {ok:false, reason:'unavailable'}; lastStand[color]--; const success = roll() < 0.05; if(success){ const victim=board[target.r][target.c]; board[target.r][target.c]=null; render(); return {ok:true, success:true, victim}; } render(); return {ok:true, success:false}; }
   function showLastStandChoices(color, done){
     const targets=lastStandTargets(color); if(targets.length===0){ log('No eligible target for Last Stand.'); return; }
@@ -862,17 +479,7 @@
       if(forced){
         const attacker=board[forced.from.r][forced.from.c];
         const defender=board[forced.to.r][forced.to.c];
-        if(attacker && attacker.type==='K'){
-        // KING STRIKE (forced escape): immediate capture with no RNG
-        const dest = {r:forced.to.r, c:forced.to.c};
-        try{ fxPoof(dest); }catch(e){}
-        board[dest.r][dest.c] = null;
-        movePiece(forced.from, dest);
-        log('<b>AI</b> King strikes and captures on <b>'+sqKey(dest.r,dest.c)+'</b>.');
-        endTurn(BLACK);
-      } else {
-        promptHumanDefendThenResolve({ attacker, defender, attackerPos:forced.from, defenderPos:forced.to, attackType:'base', defendLocked:true }, (res)=>{ if(inCheck(BLACK)){ log('<b>AI</b> escape attempt failed; retrying...'); setTimeout(aiTurn, 200);} else { endTurn(BLACK);} });
-      }
+        if(attacker && attacker.type==='K'){ /* kings cannot attack in tChess; skip this forced capture */ } else promptHumanDefendThenResolve({ attacker, defender, attackerPos:forced.from, defenderPos:forced.to, attackType:'base', defendLocked:true }, (res)=>{ if(inCheck(BLACK)){ log('<b>AI</b> escape attempt failed; retrying...'); setTimeout(aiTurn, 200);} else { endTurn(BLACK);} });
         return;
       }
     }
@@ -882,25 +489,15 @@
     for(const m of allMoves){
       if(!m.capture) continue;
       const atk=board[m.from.r][m.from.c];
-      const def=board[m.to.r][m.to.c];
-      if(!def || def.color!==WHITE) continue; if(def.type==='K') continue; if(inChk && (!m.forced || m.forced!=='base') && !(atk && atk.type==='K')) continue;
+      const def=board[m.to.r][m.to.c]; if(atk && atk.type==='K') continue;
+      if(!def || def.color!==WHITE) continue; if(def.type==='K') continue; if(inChk && (!m.forced || m.forced!=='base')) continue;
       const b=baseDmg(atk), s=2*b; let score=pieceValue(def.type); if(b>=def.hp) score+=100; else if(s>=def.hp) score+=80; else score+=40;
       if(score>bestScore){ bestScore=score; bestCap={ m, atk, def, choose: (b>=def.hp? 'base' : (s>=def.hp? 'super' : (Math.random()<0.5?'base':'super'))) }; }
     }
     if(bestCap){
       const mv=bestCap.m; const attacker=board[mv.from.r][mv.from.c]; const defender=board[mv.to.r][mv.to.c];
-      if(attacker && attacker.type==='K'){
-        const dest = {r:mv.to.r, c:mv.to.c};
-        try{ fxPoof(dest); }catch(e){}
-        board[dest.r][dest.c] = null;
-        movePiece(mv.from, dest);
-        log('<b>AI</b> King strikes and captures on <b>'+sqKey(dest.r,dest.c)+'</b>.');
-        endTurn(BLACK);
-      } else if(inChk){
-        promptHumanDefendThenResolve({ attacker, defender, attackerPos:mv.from, defenderPos:mv.to, attackType:'base', defendLocked:true }, (res)=>{ if(inCheck(BLACK)){ log('<b>AI</b> escape attempt failed; retrying...'); setTimeout(aiTurn, 200);} else { endTurn(BLACK);} });
-      } else {
-        promptHumanDefendThenResolve({ attacker, defender, attackerPos:mv.from, defenderPos:mv.to, attackType:bestCap.choose }, (res)=>{ if(inCheck(BLACK)){ log('<b>AI</b> move left king in check; retrying...'); setTimeout(aiTurn, 200);} else { endTurn(BLACK);} });
-      }
+      if(inChk){ promptHumanDefendThenResolve({ attacker, defender, attackerPos:mv.from, defenderPos:mv.to, attackType:'base', defendLocked:true }, (res)=>{ if(inCheck(BLACK)){ log('<b>AI</b> escape attempt failed; retrying...'); setTimeout(aiTurn, 200);} else { endTurn(BLACK);} }); }
+      else { promptHumanDefendThenResolve({ attacker, defender, attackerPos:mv.from, defenderPos:mv.to, attackType:bestCap.choose }, (res)=>{ if(inCheck(BLACK)){ log('<b>AI</b> move left king in check; retrying...'); setTimeout(aiTurn, 200);} else { endTurn(BLACK);} }); }
       return;
     }
 
@@ -924,16 +521,16 @@
   function showInfo(){ const infoHTML='<div class="content info">'+
       '<p><b>tChess</b> — capture attempts trigger combat before movement. If the target survives, no one moves (the capture <i>bounces</i>).</p>'+
       '<p><b>Check is enforced</b>: Kings cannot be captured; you may not use RNG to escape check. If in check, only (i) king moves, (ii) interpose, or (iii) capturing the checking piece with a <i>lethal base attack</i> are allowed. Defender cannot Defend against a legal escape.</p>'+
-      '<p><b>Old King\'s Last Stand</b> — once per game per side, if in check you may attempt a 5% smite against one checking piece anywhere on the board <b>except adjacent checkers</b>. On success, that piece is destroyed. Counts as your turn.</p>'+
-      '<p><b>Attack Types</b>: Base (auto-hit) for base damage; Super (40% hit) for <i>2×</i> damage. The King instead has a special <i>strike</i> that instantly captures any adjacent enemy piece (deterministic with no RNG or Defend).</p>'+
+      '<p><b>Old King\'s Last Stand</b> — once per game per side, if in check you may attempt a 5% smite against one checking piece anywhere on the board. On success, that piece is destroyed. Counts as your turn.</p>'+
+      '<p><b>Attack Types</b>: Base (auto-hit) for base damage; Super (40% hit) for <i>2×</i> damage.</p>'+
       '<table><thead><tr><th>Piece</th><th>HP</th><th>Base Damage</th></tr></thead>'+
         '<tbody>'+
           '<tr><td>Pawn</td><td>2</td><td>1</td></tr>'+
           '<tr><td>Knight</td><td>4</td><td>2</td></tr>'+
           '<tr><td>Bishop</td><td>4</td><td>2</td></tr>'+
           '<tr><td>Rook</td><td>6</td><td>3</td></tr>'+
-          '<tr><td>Queen</td><td>8</td><td>3</td></tr>'+
-          '<tr><td>King</td><td>— (cannot be damaged)</td><td>Instant kill</td></tr>'+
+          '<tr><td>Queen</td><td>8</td><td>4</td></tr>'+
+          '<tr><td>King</td><td>— (cannot be damaged)</td><td>—</td></tr>'+
         '</tbody>'+
       '</table>'+
       '<p><b>Defends</b>: Each side gets 3 per game. Successful Defend cancels all damage.</p>'+
@@ -948,7 +545,7 @@
     const placeOnly=(list)=>{ board=Array.from({length:8},()=>Array(8).fill(null)); for(const it of list){ const [sq,color,type,hp]=it; const file=sq.charCodeAt(0)-97; const rank=parseInt(sq[1]); const r=8-rank; const c=file; board[r][c]={color,type,hp:(hp??BASE_STATS[type].hp),hasMoved:true}; } };
 
     setupInitial(); assert('T1a start not mate (White)', !isCheckmate(WHITE)); assert('T1b start not mate (Black)', !isCheckmate(BLACK));
-    placeOnly([["e1",WHITE,'K'],["e2",BLACK,'P',2]]); turn=WHITE; const ms=genLegalMoves(7,4); assert('T2 King has adjacent capture', ms.some(m=>m.capture));
+    placeOnly([["e1",WHITE,'K'],["e2",BLACK,'P',2]]); turn=WHITE; const ms=genLegalMoves(7,4); assert('T2 King has no captures', !ms.some(m=>m.capture));
     const rnd=Math.random; Math.random=()=>0.9; placeOnly([["d4",WHITE,'P',2],["e5",BLACK,'P',2]]); const res3=resolveCombat({r:4,c:3},{r:3,c:4},'super',{used:false,block:false}); assert('T3 super miss keeps HP', board[3][4] && board[3][4].hp===2 && res3.lethal===false); Math.random=rnd;
 
     log('<b>Smoke Tests:</b> '+results.filter(r=>r.pass).length+'/'+results.length+' passing');
@@ -958,20 +555,6 @@
 
   document.getElementById('btnReset').addEventListener('click', setupInitial);
   setupInitial();
-  // Boot the 3D renderer once the game state is initialised.  We defer
-  // creation until the next tick to ensure that the board element has
-  // dimensions (after CSS layout) which would otherwise be zero at this
-  // point.  Guard against missing THREE (if the CDN fails to load).  If
-  // THREE is unavailable the game will continue in 2D and log a message.
-  setTimeout(() => {
-    if (window.THREE) {
-      initThree();
-      // Force a re-render now that the 3D scene exists
-      render();
-    } else {
-      log('<b>Initialization Error</b>: Three.js failed to load; 3D view disabled.');
-    }
-  }, 0);
   </script>
 
   <!-- Load logger and EV-aware AI -->
