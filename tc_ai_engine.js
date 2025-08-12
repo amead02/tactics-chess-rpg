@@ -8,7 +8,7 @@
   const W = 'w', B = 'b';
   const PIECE_HP = { P:2, N:4, B:4, R:6, Q:8, K:0 };
   function baseDmgOf(type, accelerated){ 
-    const base = {P:1,N:2,B:2,R:3,Q:4,K:0}[type] || 0;
+    const base = {P:1,N:2,B:2,R:3,Q:3,K:0}[type] || 0;
     return base + (accelerated ? 1 : 0);
   }
   const PVAL = {P:1, N:3, B:3, R:5, Q:9, K:100};
@@ -295,6 +295,35 @@ function interposeSquares(attackerPos, kingPos){
     const def = board[move.to.r][move.to.c];
     if(!atk || !def) return {ev:-1, detail:{reason:'no_atk_or_def'}};
     if(def.type==='K') return {ev:-1, detail:{reason:'king_illegal'}};
+
+    // If the attacking piece is a King, it performs a deterministic strike that always
+    // captures an adjacent enemy (no RNG and cannot be Defended). Treat this as a
+    // guaranteed lethal base attack worth the full value of the defender. Return early
+    // so that normal damage/EV calculations are bypassed.
+    if (atk.type === 'K') {
+      // skip illegal king-on-king captures above
+      const valKill = (PVAL[def.type] || 0);
+      return {
+        ev: valKill,
+        choose: 'base',
+        detail: {
+          pKillBase: 1,
+          pKillSuper: 1,
+          valKill,
+          valChipBase: 0,
+          valChipSuper: 0,
+          hangFactor: 0,
+          lethalBase: true,
+          lethalSuper: true,
+          bD: null,
+          sD: null,
+          pUseBase: 0,
+          pUseSuper: 0,
+          forcedBaseEscape: true,
+          special: 'king_strike'
+        }
+      };
+    }
 
     const bD = baseDmgOf(atk.type, accelerated);
     const sD = 2*bD;
