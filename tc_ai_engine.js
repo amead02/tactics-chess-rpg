@@ -8,7 +8,7 @@
   const W = 'w', B = 'b';
   const PIECE_HP = { P:2, N:4, B:4, R:6, Q:8, K:0 };
   function baseDmgOf(type, accelerated){ 
-    const base = {P:1,N:2,B:2,R:3,Q:4,K:0}[type] || 0;
+    const base = {P:1,N:2,B:2,R:3,Q:3,K:0}[type] || 0;
     return base + (accelerated ? 1 : 0);
   }
   const PVAL = {P:1, N:3, B:3, R:5, Q:9, K:100};
@@ -294,6 +294,7 @@ function interposeSquares(attackerPos, kingPos){
     const atk = board[move.from.r][move.from.c];
     const def = board[move.to.r][move.to.c];
     if(!atk || !def) return {ev:-1, detail:{reason:'no_atk_or_def'}};
+    if(atk.type==='K'){ if(def.type==='K') return {ev:-1, detail:{reason:'king_illegal'}}; const valKill=(PVAL[def.type]||0); return {ev:valKill, choose:'base', detail:{kingInstantKill:true, valKill}}; }
     if(def.type==='K') return {ev:-1, detail:{reason:'king_illegal'}};
 
     const bD = baseDmgOf(atk.type, accelerated);
@@ -388,6 +389,7 @@ function interposeSquares(attackerPos, kingPos){
   function shouldDefend(state, ctx){
     // ctx: { attackType, attacker, defender, defendLocked }
     if(ctx.defendLocked) return {use:false, reason:'locked'};
+    if(ctx.attacker && ctx.attacker.type==='K') return {use:false, reason:'king_unblockable'};
     const defCount = state.defends[B]; // AI's tokens (Black)
     if(defCount<=0) return {use:false, reason:'none_left'};
 
